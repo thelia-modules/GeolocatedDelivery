@@ -1,0 +1,127 @@
+<div class="general-block-decorator">
+    <div class="row">
+
+        <div class="col-md-12 title title-without-tabs">
+            {intl d='geolocateddelivery.bo.default' l='Store'}
+        </div>
+
+        <div id="store" class="form-container">
+            <div class="col-md-12">
+                {form name="geolocateddelivery_form_store_form"}
+                {form_hidden_fields form=$form}
+                {if $form_error_message}<div class="alert alert-danger">{$form_error_message}</div>{/if}
+                {/form}
+                <div class="table-responsive">
+                    <table class="table table-striped table-condensed table-left-aligned">
+                        <thead>
+                        <tr>
+                            <th class="col-md-4">{intl d='geolocateddelivery.bo.default' l="Street"}</th>
+                            <th class="col-md-2">{intl d='geolocateddelivery.bo.default' l="Zip code"}</th>
+                            <th class="col-md-2">{intl d='geolocateddelivery.bo.default' l="City"}</th>
+                            <th class="col-md-3">{intl d='geolocateddelivery.bo.default' l="Name"}</th>
+                            <th class="col-md-1">{intl d='geolocateddelivery.bo.default' l="Actions"}</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {loop type="geolocated.delivery.store" name="geolocateddelivery_store_loop"}
+                            <tr class="js-store" data-id="{$ID}">
+                                {form name="geolocateddelivery_form_store_form"}
+                                    <form method="POST" id="geolocateddelivery-form-store" action="{url path="/admin/module/geolocateddelivery/store/save"}" {form_enctype form=$form} class="clearfix">
+
+                                        {form_hidden_fields form=$form}
+
+                                        {form_field form=$form field="id"}
+                                            <input type="text" hidden data-field="id" name="{$name}" value="{$ID}" />
+                                        {/form_field}
+
+                                        {form_field form=$form field="street"}
+                                            <th class="col-md-4 form-group {if $error}has-error{/if}">
+                                                <input type="text" data-field="street" name="{$name}" class="form-control" value="{$STREET}" />
+                                            </th>
+                                        {/form_field}
+
+                                        {form_field form=$form field="zip_code"}
+                                            <th class="col-md-2 form-group {if $error}has-error{/if}">
+                                                <input type="text" data-field="zip_code" name="{$name}" class="form-control" value="{$ZIP_CODE}" />
+                                            </th>
+                                        {/form_field}
+
+                                        {form_field form=$form field="city"}
+                                            <th class="col-md-2 form-group {if $error}has-error{/if}">
+                                                <input type="text" data-field="city" name="{$name}" class="form-control" value="{$CITY}" />
+                                            </th>
+                                        {/form_field}
+
+                                        {form_field form=$form field="name"}
+                                            <th class="col-md-3 form-group {if $error}has-error{/if}">
+                                                <input type="text" data-field="name" name="{$name}" class="form-control" value="{$NAME}" />
+                                            </th>
+                                        {/form_field}
+
+                                        <th class="col-md-1">
+                                            <div class="btn-group">
+                                                {loop type="auth" name="can_change" role="ADMIN" module="geolocateddelivery" access="UPDATE"}
+                                                    <button class="btn btn-default btn-xs js-store-save" type="submit" title="{intl d='geolocateddelivery.bo.default' l='Save this store'}" >
+                                                        <span class="glyphicon glyphicon-floppy-disk"></span>
+                                                    </button>
+                                                {/loop}
+                                                {loop type="auth" name="can_change" role="ADMIN" module="geolocateddelivery" access="DELETE"}
+                                                    <a class="btn btn-default btn-xs js-store-delete" href="{url path="/admin/module/geolocateddelivery/store/delete/{$ID}"}" title="{intl d='geolocateddelivery.bo.default' l='Delete this store'}">
+                                                        <span class="glyphicon glyphicon-trash"></span>
+                                                    </a>
+                                                {/loop}
+                                            </div>
+                                        </th>
+                                    </form>
+                                {/form}
+                            </tr>
+                        {/loop}
+
+                        <!-- New store -->
+                        <tr class="js-store-new" data-id="0">
+                            {form name="geolocateddelivery_form_store_form"}
+                                <form method="POST" id="geolocateddelivery-form-store" action="{url path="/admin/module/geolocateddelivery/store/save"}" {form_enctype form=$form} class="clearfix">
+
+                                    {form_hidden_fields form=$form}
+
+                                    {form_field form=$form field="street"}
+                                        <th class="col-md-4 form-group {if $error}has-error{/if}">
+                                            <input type="text" data-field="street" name="{$name}" class="form-control" value="" />
+                                        </th>
+                                    {/form_field}
+
+                                    {form_field form=$form field="zip_code"}
+                                        <th class="col-md-2 form-group {if $error}has-error{/if}">
+                                            <input type="text" data-field="zip_code" name="{$name}" class="form-control" value="" />
+                                        </th>
+                                    {/form_field}
+
+                                    {form_field form=$form field="city"}
+                                        <th class="col-md-2 form-group {if $error}has-error{/if}">
+                                            <input type="text" data-field="city" name="{$name}" class="form-control" value="" />
+                                        </th>
+                                    {/form_field}
+
+                                    {form_field form=$form field="name"}
+                                        <th class="col-md-3 form-group {if $error}has-error{/if}">
+                                            <input type="text" data-field="name" name="{$name}" class="form-control" value="" />
+                                        </th>
+                                    {/form_field}
+
+                                    <th class="col-md-1">
+                                        <button class="btn btn-default btn-xs js-store-add" type="submit" title="{intl d='geolocateddelivery.bo.default' l='Add this store'}" >
+                                            <span class="glyphicon glyphicon-plus"></span>
+                                        </button>
+                                    </th>
+
+                                </form>
+                            {/form}
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

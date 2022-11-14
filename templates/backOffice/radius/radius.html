@@ -1,0 +1,115 @@
+<!-- radius -->
+<div class="general-block-decorator">
+    <div class="row">
+
+        <div class="col-md-12 title title-without-tabs">
+            {intl d='geolocateddelivery.bo.default' l='Radius'}
+        </div>
+
+        <div id="radius" class="form-container">
+            <div class="col-md-12">
+                {form name="geolocateddelivery_form_radius_form"}
+                    {form_hidden_fields form=$form}
+                    {if $form_error_message}<div class="alert alert-danger">{$form_error_message}</div>{/if}
+                {/form}
+                <div class="table-responsive">
+                    <table class="table table-striped table-condensed table-left-aligned">
+                        <thead>
+                            <tr>
+                                <th class="col-md-3">{intl d='geolocateddelivery.bo.default' l="Minimal radius (km)"}</th>
+                                <th class="col-md-3">{intl d='geolocateddelivery.bo.default' l="Maximal radius (km)"}</th>
+                                <th class="col-md-3">{intl d='geolocateddelivery.bo.default' l="Price (%symbol)" symbol=$currencySymbol}</th>
+                                <th class="col-md-1">{intl d='geolocateddelivery.bo.default' l="Actions"}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loop type="geolocated.delivery.radius" name="geolocateddelivery_radius_loop"}
+                                <tr class="js-radius" data-id="{$ID}">
+                                    {form name="geolocateddelivery_form_radius_form"}
+                                        <form method="POST" id="geolocateddelivery-form-radius" action="{url path="/admin/module/geolocateddelivery/radius/save"}" {form_enctype form=$form} class="clearfix">
+
+                                            {form_hidden_fields form=$form}
+
+                                            {form_field form=$form field="id"}
+                                                <input type="text" hidden data-field="id" name="{$name}" value="{$ID}" />
+                                            {/form_field}
+
+                                            {form_field form=$form field="minRadius"}
+                                                <th class="col-md-3">
+                                                    <input type="text" data-field="minRadius" name="{$name}" class="form-control js-radius-min-radius" value="{$MIN_RADIUS}" data-old="{$MIN_RADIUS}" />
+                                                </th>
+                                            {/form_field}
+
+                                            {form_field form=$form field="maxRadius"}
+                                                <th class="col-md-3">
+                                                    <input type="text" data-field="maxRadius" name="{$name}" class="form-control js-radius-max-radius" value="{$MAX_RADIUS}" data-old="{$MAX_RADIUS}" />
+                                                </th>
+                                            {/form_field}
+
+                                            {form_field form=$form field="price"}
+                                                <th class="col-md-3">
+                                                    <input type="text" data-field="price" name="{$name}" class="form-control js-radius-price" value="{$PRICE}" data-old="{$PRICE}" />
+                                                </th>
+                                            {/form_field}
+
+                                            <th class="col-md-1">
+                                                <div class="btn-group">
+                                                    {loop type="auth" name="can_change" role="ADMIN" module="geolocateddelivery" access="UPDATE"}
+                                                        <button class="btn btn-default btn-xs js-radius-save" type="submit" title="{intl d='geolocateddelivery.bo.default' l='Save this radius'}" >
+                                                            <span class="glyphicon glyphicon-floppy-disk"></span>
+                                                        </button>
+                                                    {/loop}
+                                                    {loop type="auth" name="can_change" role="ADMIN" module="geolocateddelivery" access="DELETE"}
+                                                        <a class="btn btn-default btn-xs js-radius-delete" href="{url path="/admin/module/geolocateddelivery/radius/delete/{$ID}"}" title="{intl d='geolocateddelivery.bo.default' l='Delete this radius'}">
+                                                            <span class="glyphicon glyphicon-trash"></span>
+                                                        </a>
+                                                    {/loop}
+                                                </div>
+                                            </th>
+                                        </form>
+                                    {/form}
+                                </tr>
+                            {/loop}
+
+                            <!-- New radius -->
+                            <tr class="js-radius-new" data-id="0">
+                                {form name="geolocateddelivery_form_radius_form"}
+                                    <form method="POST" id="geolocateddelivery-form-radius" action="{url path="/admin/module/geolocateddelivery/radius/save"}" {form_enctype form=$form} class="clearfix">
+
+                                        {form_hidden_fields form=$form}
+
+                                        {form_field form=$form field="minRadius"}
+                                            <th class="col-md-3 form-group {if $error}has-error{/if}">
+                                                <input type="text" data-field="minRadius" name="{$name}" class="form-control js-radius-min-radius" value="" />
+                                            </th>
+                                        {/form_field}
+
+                                        {form_field form=$form field="maxRadius"}
+                                            <th class="col-md-3 form-group {if $error}has-error{/if}">
+                                                <input type="text" data-field="maxRadius" name="{$name}" class="form-control js-radius-max-radius" value="" />
+                                            </th>
+                                        {/form_field}
+
+                                        {form_field form=$form field="price"}
+                                            <th class="col-md-3 form-group {if $error}has-error{/if}">
+                                                <input type="text" data-field="price" name="{$name}" class="form-control js-radius-price" value="" />
+                                            </th>
+                                        {/form_field}
+
+                                        <th class="col-md-1">
+                                            <button class="btn btn-default btn-xs js-radius-add" type="submit" title="{intl d='geolocateddelivery.bo.default' l='Add this radius'}" >
+                                                <span class="glyphicon glyphicon-plus"></span>
+                                            </button>
+                                        </th>
+
+                                    </form>
+                                {/form}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
