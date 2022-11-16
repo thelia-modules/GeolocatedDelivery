@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<config xmlns="http://thelia.net/schema/dic/config"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://thelia.net/schema/dic/config http://thelia.net/schema/dic/config/thelia-1.0.xsd">
+
+    <hooks>
+        <hook id="geolocated.delivery.hook" class="GeolocatedDelivery\Hook\HookManager" scope="request">
+            <tag name="hook.event_listener" event="module.configuration" type="back" method="onAccountOrderAfterProducts" />
+        </hook>
+    </hooks>
+
+    <loops>
+        <loop name="geolocated.delivery.store" class="GeolocatedDelivery\Loop\GeolocatedDeliveryStoreLoop" />
+        <loop name="geolocated.delivery.radius" class="GeolocatedDelivery\Loop\GeolocatedDeliveryRadiusLoop" />
+    </loops>
+
+</config>

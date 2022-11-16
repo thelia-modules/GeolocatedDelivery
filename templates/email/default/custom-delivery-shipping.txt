@@ -1,0 +1,18 @@
+{default_translation_domain domain="geolocateddelivery.email.default"}
+
+{loop type="customer" name="customer.order" current="false" id="$customer_id" backend_context="1"}
+    {intl l="Dear" } {$LASTNAME} {$FIRSTNAME},
+{/loop}
+
+{intl l="Thank you for your order on our online store %store_name" store_name={config key="store_name"}}
+
+{intl l="Your order %order_ref dated %order_date has been shipped on %update_date" order_ref={$order_ref} order_date={format_date date=$order_date} update_date={format_date date=$update_date}}
+{if $package}
+{intl l="The tracking number for this delivery is: %package" package={$package}}
+{if $tracking_url}
+{intl l="Please check this URL to track your parcel : %tracking_url" tracking_url={$tracking_url}}
+{/if}
+{/if}
+{intl l="Feel free to contact us for any further information"}
+
+{intl l="Best Regards."}

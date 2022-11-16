@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<database defaultIdMethod="native" name="TheliaMain"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:noNamespaceSchemaLocation="../../../vendor/thelia/propel/resources/xsd/database.xsd" >
+
+    <table name="geolocated_delivery_radius" namespace="GeolocatedDelivery\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER" />
+
+        <column name="min_radius" required="true" type="INTEGER" />
+        <column name="max_radius" required="true" type="INTEGER" />
+        <column name="price" required="true" type="FLOAT" />
+    </table>
+
+    <table name="geolocated_delivery_store" namespace="GeolocatedDelivery\Model">
+        <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER" />
+
+        <column name="street" required="true" type="VARCHAR" />
+        <column name="zip_code" required="true" type="VARCHAR" />
+        <column name="city" required="true" type="VARCHAR" />
+        <column name="name" required="true" type="VARCHAR" />
+        <column name="latitude" required="false" type="VARCHAR" />
+        <column name="longitude" required="false" type="VARCHAR" />
+    </table>
+
+    <external-schema filename="local/config/schema.xml" referenceOnly="true" />
+</database>

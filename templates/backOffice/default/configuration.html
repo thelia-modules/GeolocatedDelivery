@@ -1,0 +1,56 @@
+<!-- Configuration du module -->
+<div class="general-block-decorator">
+    <div class="row">
+
+        <div class="col-md-12 title title-without-tabs">
+            {intl d='geolocateddelivery.bo.default' l='Configuration.'}
+        </div>
+
+        <div class="form-container">
+            <div class="col-md-12">
+
+{*                {form name="geolocateddelivery-configuration-form"}*}
+                {form name="geolocateddelivery_form_configuration_form"}
+                <form method="POST" id="geolocateddelivery-form" action="{url path="/admin/module/geolocateddelivery/configuration"}" {form_enctype form=$form} class="clearfix">
+
+                {if $form_error_message}<div class="alert alert-danger">{$form_error_message}</div>{/if}
+
+                {form_hidden_fields form=$form}
+
+                {render_form_field form=$form field="url"}
+                {render_form_field form=$form field="method"}
+
+                {form_field form=$form field="tax"}
+                    <div class="form-group {if $error}has-error{/if}">
+                        <label for="{$label_attr.for}" class="control-label">{$label} : </label>
+
+                        <select id="{$label_attr.for}" name="{$name}" class="form-control">
+                            <option value="" {if $value == 0}selected="selected"{/if}>{intl l="No taxes" d="geolocateddelivery.bo.default"}</option>
+                            {loop name='tax-rule-admin' type="tax-rule" backend_context="on"}
+                            <option value="{$ID}" {if $value == $ID}selected="selected"{/if}>{$ID}: {$TITLE}</option>
+                            {/loop}
+                        </select>
+                    </div>
+                {/form_field}
+
+                <button type="submit" id="vpg-save" name="geolocateddelivery_save" value="save" class="form-submit-button btn btn-sm btn-default" title="{intl d='geolocateddelivery.bo.default' l='Save'}">{intl d='geolocateddelivery.bo.default' l='Save'}</button>
+
+                </form>
+                {/form}
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+{* default currency *}
+{loop type="currency" name="default_currency" default_only="1"}
+{$currencySymbol=$SYMBOL}
+{/loop}
+
+{include file = "../store/store.html"}
+{include file = "../radius/radius.html"}
+
+{include file = "includes/generic-warning-dialog.html" dialog_id       = "geolocateddelivery_dialog" dialog_title    = {intl d='geolocateddelivery.bo.default' l="Message"} dialog_body = ""}
