@@ -54,23 +54,6 @@ class ConfigurationForm extends BaseForm
 
         $form
             ->add(
-                "url",
-                TextType::class,
-                [
-                    'constraints' => [
-                        new NotBlank()
-                    ],
-                    'data' => $config['url'],
-                    'label' => $this->trans("Tracking URL"),
-                    'label_attr' => [
-                        'for' => "url",
-                        'help' => $this->trans(
-                            "The tracking URL. %ID% will be replaced by the tracking number entered in the order"
-                        )
-                    ],
-                ]
-            )
-            ->add(
                 "method",
                 ChoiceType::class,
                 [

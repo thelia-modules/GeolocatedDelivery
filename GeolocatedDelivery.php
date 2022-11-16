@@ -42,71 +42,71 @@ class GeolocatedDelivery extends AbstractDeliveryModuleWithState
     protected $translator;
 
     public static function getConfig()
-{
-    $config = [
-        'url' => (
-        self::getConfigValue('url')
-        ),
-        'method' => (
-        self::getConfigValue('method')
-        ),
-        'tax' => (
-        self::getConfigValue('tax')
-        ),
-    ];
+    {
+        $config = [
+            'url' => (
+            self::getConfigValue('url')
+            ),
+            'method' => (
+            self::getConfigValue('method')
+            ),
+            'tax' => (
+            self::getConfigValue('tax')
+            ),
+        ];
 
-    return $config;
-}
+        return $config;
+    }
 
     public function postActivation(ConnectionInterface $con = null): void
-{
-    if (!$this->getConfigValue('is_initialized', false)) {
-        $database = new Database($con);
+    {
+        if (!$this->getConfigValue('is_initialized', false)) {
+            $database = new Database($con);
 
-        $database->insertSql(null, array(__DIR__ . '/Config/TheliaMain.sql'));
+            $database->insertSql(null, array(__DIR__ . '/Config/TheliaMain.sql'));
 
-        $this->setConfigValue('is_initialized', true);
-    }
-
-    // register config variables
-    if (null === ConfigQuery::read(self::CONFIG_TRACKING_URL, null)) {
-        ConfigQuery::write(self::CONFIG_TRACKING_URL, self::DEFAULT_TRACKING_URL);
-    }
-
-    if (null === ConfigQuery::read(self::CONFIG_PICKING_METHOD, null)) {
-        ConfigQuery::write(self::CONFIG_PICKING_METHOD, self::DEFAULT_PICKING_METHOD);
-    }
-
-    // create new message
-    if (null === MessageQuery::create()->findOneByName('mail_geolocated_delivery')) {
-
-        $message = new Message();
-        $message
-            ->setName('mail_geolocated_delivery')
-            ->setHtmlTemplateFileName('geolocated-delivery-shipping.html')
-            ->setHtmlLayoutFileName('')
-            ->setTextTemplateFileName('geolocated-delivery-shipping.txt')
-            ->setTextLayoutFileName('')
-            ->setSecured(0);
-
-        $languages = LangQuery::create()->find();
-
-        foreach ($languages as $language) {
-            $locale = $language->getLocale();
-
-            $message->setLocale($locale);
-
-            $message->setTitle(
-                $this->trans('GeolocatedDelivery shipping message', [], $locale)
-            );
-            $message->setSubject(
-                $this->trans('Your order {$order_ref} has been shipped', [], $locale)
-            );
+            $this->setConfigValue('is_initialized', true);
         }
 
-        $message->save();
+        // register config variables
+        if (null === ConfigQuery::read(self::CONFIG_TRACKING_URL, null)) {
+            ConfigQuery::write(self::CONFIG_TRACKING_URL, self::DEFAULT_TRACKING_URL);
+        }
+
+        if (null === ConfigQuery::read(self::CONFIG_PICKING_METHOD, null)) {
+            ConfigQuery::write(self::CONFIG_PICKING_METHOD, self::DEFAULT_PICKING_METHOD);
+        }
+
+        // create new message
+        if (null === MessageQuery::create()->findOneByName('mail_geolocated_delivery')) {
+
+            $message = new Message();
+            $message
+                ->setName('mail_geolocated_delivery')
+                ->setHtmlTemplateFileName('geolocated-delivery-shipping.html')
+                ->setHtmlLayoutFileName('')
+                ->setTextTemplateFileName('geolocated-delivery-shipping.txt')
+                ->setTextLayoutFileName('')
+                ->setSecured(0);
+
+            $languages = LangQuery::create()->find();
+
+            foreach ($languages as $language) {
+                $locale = $language->getLocale();
+
+                $message->setLocale($locale);
+
+                $message->setTitle(
+                    $this->trans('GeolocatedDelivery shipping message', [], $locale)
+                );
+                $message->setSubject(
+                    $this->trans('Your order {$order_ref} has been shipped', [], $locale)
+                );
+            }
+
+            $message->save();
+        }
     }
-}
 
     /**
      * This method is called by the Delivery  loop, to check if the current module has to be displayed to the customer.
@@ -121,9 +121,9 @@ class GeolocatedDelivery extends AbstractDeliveryModuleWithState
      * @return boolean
      */
     public function isValidDelivery(Country $country, State $state = null)
-{
-    return 1 === ModuleQuery::create()->findOneByCode('GeolocatedDelivery')?->getActivate();
-}
+    {
+        return 1 === ModuleQuery::create()->findOneByCode('GeolocatedDelivery')?->getActivate();
+    }
 
     /**
      * Calculate and return delivery price in the shop's default currency
@@ -135,21 +135,23 @@ class GeolocatedDelivery extends AbstractDeliveryModuleWithState
      * @throws DeliveryException if the postage price cannot be calculated.
      */
     public function getPostage(Country $country, State $state = null)
-{
-    try {
-        /** @var Order $order */
-        $order = $_SESSION['_sf2_attributes']['thelia.order'];
-        $address = AddressQuery::create()->findOneById($order->getChoosenDeliveryAddress());
-        $deliveryModule = $order->getModuleRelatedByDeliveryModuleId();
-        if ($address && $deliveryModule?->getCode() === "GeolocatedDelivery"){
+    {
+        try {
+            /** @var Order $order */
+            $order = $this->getRequest()->getSession()->getOrder();
+            $address = AddressQuery::create()->findOneById($order?->getChoosenDeliveryAddress());
+
+            if (!$address) {
+                return new OrderPostage(0, 0.0, "no tax");
+            }
+
             $price = GeolocManager::getRadius($address);
-            return new OrderPostage($price,0.0,"no tax");
+
+            return new OrderPostage($price, 0.0, "no tax");
+        } catch (\Exception $e) {
+            throw new \Exception($e->getMessage());
         }
-        return new OrderPostage(0.0,0.0,"no taxes");
-    } catch (\Exception $e) {
-        throw new \Exception($e->getMessage());
     }
-}
 
     /**
      *
@@ -158,23 +160,23 @@ class GeolocatedDelivery extends AbstractDeliveryModuleWithState
      * @return bool
      */
     public function handleVirtualProductDelivery()
-{
-    return false;
-}
-
-    protected function trans($id, array $parameters = [], $locale = null)
-{
-    if (null === $this->translator) {
-        $this->translator = Translator::getInstance();
+    {
+        return false;
     }
 
-    return $this->translator->trans($id, $parameters, GeolocatedDelivery::MESSAGE_DOMAIN, $locale);
-}
+    protected function trans($id, array $parameters = [], $locale = null)
+    {
+        if (null === $this->translator) {
+            $this->translator = Translator::getInstance();
+        }
+
+        return $this->translator->trans($id, $parameters, GeolocatedDelivery::MESSAGE_DOMAIN, $locale);
+    }
 
     public function getDeliveryMode()
-{
-    return 'delivery';
-}
+    {
+        return 'delivery';
+    }
 
     /*
      * You may now override BaseModuleInterface methods, such as:
@@ -190,8 +192,8 @@ class GeolocatedDelivery extends AbstractDeliveryModuleWithState
      */
     public static function configureServices(ServicesConfigurator $servicesConfigurator): void
     {
-        $servicesConfigurator->load(self::getModuleCode().'\\', __DIR__)
-            ->exclude([THELIA_MODULE_DIR . ucfirst(self::getModuleCode()). "/I18n/*"])
+        $servicesConfigurator->load(self::getModuleCode() . '\\', __DIR__)
+            ->exclude([THELIA_MODULE_DIR . ucfirst(self::getModuleCode()) . "/I18n/*"])
             ->autowire(true)
             ->autoconfigure(true);
     }
@@ -209,7 +211,7 @@ class GeolocatedDelivery extends AbstractDeliveryModuleWithState
             ->name('*.sql')
             ->depth(0)
             ->sortByName()
-            ->in(__DIR__.DS.'Config'.DS.'update');
+            ->in(__DIR__ . DS . 'Config' . DS . 'update');
 
         $database = new Database($con);
 

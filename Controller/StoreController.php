@@ -20,6 +20,7 @@ use GeolocatedDelivery\Model\GeolocatedDeliveryStoreQuery;
 use GeolocatedDelivery\Utils\GeolocManager;
 use Symfony\Component\Routing\Annotation\Route;
 use Thelia\Core\HttpFoundation\Request;
+use Thelia\Core\Template\ParserContext;
 use Thelia\Model\Address;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Thelia\Controller\Admin\BaseAdminController;
@@ -41,7 +42,7 @@ class StoreController extends BaseAdminController
     protected $useFallbackTemplate = true;
 
     #[Route('/save', name: 'geolocateddelivery.admin.store.update')]
-    public function saveStoreAction()
+    public function saveStoreAction(ParserContext $parserContext)
     {
         $response = $this->checkAuth([AdminResources::MODULE], ['geolocateddelivery'], AccessManager::UPDATE);
 
@@ -58,24 +59,32 @@ class StoreController extends BaseAdminController
             $vform = $this->validateForm($form);
             $data = $vform->getData();
 
-            if ($data['id']){
+            if ($data['id']) {
                 $store = GeolocatedDeliveryStoreQuery::create()->findOneById($data['id']);
-            }else{
+            } else {
                 $store = new GeolocatedDeliveryStore();
             }
 
             $address = new Address();
             $address->setAddress1($data["street"])
-                    ->setZipcode($data["zip_code"])
-                    ->setCity($data["city"]);
+                ->setZipcode($data["zip_code"])
+                ->setCity($data["city"]);
 
             $store->setStreet($data["street"]);
             $store->setCity($data["city"]);
             $store->setZipCode($data["zip_code"]);
             $store->setName($data["name"]);
             $content = GeolocManager::getGeolocFromAddress($address);
-            $store->setLatitude($content['data'][0]['latitude']??null);
-            $store->setLongitude($content['data'][0]['longitude']??null);
+
+            $latitude = $content['features'][0]['geometry']['coordinates'][1] ?? null;
+            $longitude = $content['features'][0]['geometry']['coordinates'][0] ?? null;
+
+            if (!$latitude || !$longitude) {
+                throw new \Exception(Translator::getInstance()->trans('No store address found !', [], GeolocatedDelivery::MESSAGE_DOMAIN));
+            }
+
+            $store->setLatitude($latitude);
+            $store->setLongitude($longitude);
 
             $store->save();
         } catch (\Exception $e) {
@@ -83,8 +92,9 @@ class StoreController extends BaseAdminController
         }
         if ($message) {
             $form->setErrorMessage($message);
-            $this->getParserContext()->addForm($form);
-            $this->getParserContext()->setGeneralError($message);
+
+            $parserContext->addForm($form)
+                ->setGeneralError($message);
 
             return $this->render(
                 "module-configure",
@@ -96,7 +106,7 @@ class StoreController extends BaseAdminController
     }
 
     #[Route('/delete/{id}', name: 'geolocateddelivery.admin.store.delete')]
-    public function deleteStoreAction(Request $request, $id) :RedirectResponse
+    public function deleteStoreAction(Request $request, $id): RedirectResponse
     {
         $response = $this->checkAuth([], ['geolocateddelivery'], AccessManager::DELETE);
 
@@ -112,7 +122,7 @@ class StoreController extends BaseAdminController
                 $responseData['message'] = Translator::getInstance()->trans(
                     'The store has not been deleted',
                     [],
-                     GeolocatedDelivery::MESSAGE_DOMAIN
+                    GeolocatedDelivery::MESSAGE_DOMAIN
                 );
             }
         } catch (\Exception $e) {

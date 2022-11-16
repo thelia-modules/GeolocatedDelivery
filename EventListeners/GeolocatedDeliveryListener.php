@@ -13,6 +13,7 @@
 
 namespace GeolocatedDelivery\EventListeners;
 
+use CustomDelivery\CustomDelivery;
 use GeolocatedDelivery\GeolocatedDelivery;
 use JetBrains\PhpStorm\ArrayShape;
 use OpenApi\Events\DeliveryModuleOptionEvent;
@@ -121,6 +122,10 @@ class GeolocatedDeliveryListener implements EventSubscriberInterface
     public function getOptions(DeliveryModuleOptionEvent $deliveryPostageEvent): void
     {
         try {
+            if ($deliveryPostageEvent->getModule()->getId() !== CustomDelivery::getModuleId()) {
+                return ;
+            }
+
             if (!isset($deliveryPostageEvent->getDeliveryModuleOptions()[0])) {
                 throw new \Exception('no matching option in GeolocatedDelivery listener');
             }

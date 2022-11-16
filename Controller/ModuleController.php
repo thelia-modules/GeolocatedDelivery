@@ -21,6 +21,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Thelia\Controller\Admin\BaseAdminController;
 use Thelia\Core\Security\AccessManager;
 use Thelia\Core\Security\Resource\AdminResources;
+use Thelia\Core\Template\ParserContext;
 use Thelia\Model\ConfigQuery;
 use Thelia\Tools\URL;
 
@@ -32,7 +33,7 @@ use Thelia\Tools\URL;
 class ModuleController extends BaseAdminController
 {
     #[Route('/admin/module/geolocateddelivery/configuration', name: 'geolocateddelivery.admin.configuration')]
-    public function saveConfigurationAction() :RedirectResponse|Response
+    public function saveConfigurationAction(ParserContext $parserContext) :RedirectResponse|Response
     {
         $response = $this->checkAuth([AdminResources::MODULE], ['geolocateddelivery'], AccessManager::UPDATE);
 
@@ -49,24 +50,22 @@ class ModuleController extends BaseAdminController
             $vform = $this->validateForm($form);
             $data = $vform->getData();
 
-            GeolocatedDelivery::setConfigValue('url', $data['url']);
             GeolocatedDelivery::setConfigValue('method', $data['method']);
             GeolocatedDelivery::setConfigValue('tax', $data['tax']);
 
         } catch (\Exception $e) {
             $message = $e->getMessage();
         }
-        if ($message) {
-            $form->setErrorMessage($message);
-            $this->getParserContext()->addForm($form);
-            $this->getParserContext()->setGeneralError($message);
 
-            return $this->render(
-                "module-configure",
-                ["module_code" => GeolocatedDelivery::getModuleCode()]
-            );
-        }
+        $form->setErrorMessage($message);
 
-        return new RedirectResponse(URL::getInstance()->absoluteUrl("/admin/module/" . GeolocatedDelivery::getModuleCode()));
+        $parserContext
+            ->addForm($form)
+            ->setGeneralError($message);
+
+        return $this->render(
+            "module-configure",
+            ["module_code" => GeolocatedDelivery::getModuleCode()]
+        );
     }
 }
