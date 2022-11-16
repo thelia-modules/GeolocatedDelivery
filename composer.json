@@ -1,5 +1,5 @@
 {
-  "name": "your-vendor/geolocated-delivery-module",
+  "name": "thelia/geolocated-delivery-module",
   "description": "GeolocatedDelivery module for Thelia",
   "license": "LGPL-3.0-or-later",
   "type": "thelia-module",
