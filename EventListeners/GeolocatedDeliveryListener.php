@@ -38,12 +38,12 @@ class GeolocatedDeliveryListener implements EventSubscriberInterface
 {
     public function __construct(
         protected ParserInterface $parser,
-        protected MailerFactory $mailer,
-    ) {
+        protected MailerFactory   $mailer,
+    )
+    {
     }
 
 
-    
     public static function getSubscribedEvents(): array
     {
         return [
@@ -75,8 +75,8 @@ class GeolocatedDeliveryListener implements EventSubscriberInterface
                 $this->parser->assign('customer_id', $customer->getId());
                 $this->parser->assign('order_id', $order->getId());
                 $this->parser->assign('order_ref', $order->getRef());
-                $this->parser->assign('order_date', $order?->getCreatedAt()??new \DateTime());
-                $this->parser->assign('update_date', $order?->getUpdatedAt()??new \DateTime());
+                $this->parser->assign('order_date', $order?->getCreatedAt() ?? new \DateTime());
+                $this->parser->assign('update_date', $order?->getUpdatedAt() ?? new \DateTime());
 
                 $package = $order->getDeliveryRef();
                 $trackingUrl = null;
@@ -123,26 +123,26 @@ class GeolocatedDeliveryListener implements EventSubscriberInterface
     {
         try {
             if ($deliveryPostageEvent->getModule()->getId() !== CustomDelivery::getModuleId()) {
-                return ;
+                return;
             }
 
             if (!isset($deliveryPostageEvent->getDeliveryModuleOptions()[0])) {
                 throw new \Exception('no matching option in GeolocatedDelivery listener');
             }
+
             $deliveryModuleOption = $deliveryPostageEvent->getDeliveryModuleOptions()[0];
             $address = $deliveryPostageEvent->getAddress();
             $price = GeolocManager::getRadius($address);
 
-            if ($deliveryModuleOption->getCode() === "GeolocatedDelivery") {
-                if (null !== $price) {
-                    $deliveryModuleOption->setPostage($price);
-                }
-                $deliveryModuleOption->setValid(null !== $price);
-            } elseif (null === $price) {
-                $deliveryModuleOption->setValid(true);
-            } elseif (0.0 !== $price && $price <= 20.0 && $deliveryModuleOption->getCode() !== "LocalPickup") {
+            if (null === $price) {
+                $deliveryModuleOption->setPostage(null);
                 $deliveryModuleOption->setValid(false);
+                return;
             }
+
+            $deliveryModuleOption->setPostage($price);
+            $deliveryModuleOption->setValid(true);
+
         } catch (\Exception $e) {
             throw new \Exception($e->getMessage());
         }

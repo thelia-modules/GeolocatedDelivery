@@ -4,6 +4,7 @@ namespace GeolocatedDelivery\Utils;
 
 use Exception;
 use Symfony\Component\HttpClient\HttpClient;
+use Thelia\Core\Translation\Translator;
 use Thelia\Model\Address;
 use GeolocatedDelivery\Model\GeolocatedDeliveryRadiusQuery;
 use GeolocatedDelivery\Model\GeolocatedDeliveryStoreQuery;
@@ -22,11 +23,10 @@ class GeolocManager
             $response = $httpClient->request(
                 'GET',
                 "https://api-adresse.data.gouv.fr/search/"
-                . "?q=" . $address->getAddress1()
+                . "?q=" . $address->getAddress1() . ' ' . $address->getAddress2() . ' ' . $address->getAddress3()
                 . "+" . $address->getCity()
-                . "&" . "postcode" . $address->getZipcode()
+                . "&" . "postcode=" . $address->getZipcode()
             );
-
 
             $statusCode = $response->getStatusCode();
 
@@ -52,29 +52,32 @@ class GeolocManager
 
     public static function getRadius(?Address $address): ?float
     {
-        try {
-            $content = self::getGeolocFromAddress($address);
+        $content = self::getGeolocFromAddress($address);
 
+        $lat = $content['features'][0]['geometry']['coordinates'][1];
+        $lng = $content['features'][0]['geometry']['coordinates'][0];
 
-            $lat = $content['features'][0]['geometry']['coordinates'][1];
-            $lng = $content['features'][0]['geometry']['coordinates'][0];
+        $stores = GeolocatedDeliveryStoreQuery::create()->find();
+        $radiues = GeolocatedDeliveryRadiusQuery::create()->find();
 
-            $stores = GeolocatedDeliveryStoreQuery::create()->find();
-            $radiues = GeolocatedDeliveryRadiusQuery::create()->find();
+        if (count($stores) === 0 || count($radiues) === 0) {
+            return null;
+        }
 
-            foreach ($stores as $store) {
-                $distance = self::getDistance($lat, $store->getLatitude(), $lng, $store->getLongitude());
-                if ($distance <= 20) {
-                    foreach ($radiues as $radius) {
-                        if ($distance >= $radius->getMinRadius() && $distance <= $radius->getMaxRadius()) {
-                            return $radius->getPrice();
-                        }
-                    }
+        if (count($stores) === 0 || count($radiues) === 0) {
+            return null;
+        }
+
+        foreach ($stores as $store) {
+            $distance = self::getDistance($lat, $store->getLatitude(), $lng, $store->getLongitude());
+
+            foreach ($radiues as $radius) {
+                if ($distance >= $radius->getMinRadius() && $distance <= $radius->getMaxRadius()) {
+                    return $radius->getPrice();
                 }
             }
-        } catch (Exception $e) {
-
         }
+
         return null;
     }
 
@@ -93,8 +96,7 @@ class GeolocManager
         $r = 6371008; // Earth's average radius, in meters
         $d = $r * $c;
 
-        return $d;
-
+        return $d / 1000;
     }
 
     /*public static function getDistance(?string $lat1, ?string $lon1, ?string $lat2, ?string $lon2): float

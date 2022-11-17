@@ -17,7 +17,7 @@ use Thelia\Module\Exception\DeliveryException;
 
 class ApiListener implements EventSubscriberInterface
 {
-    /** @var ContainerInterface  */
+    /** @var ContainerInterface */
     protected $container;
 
     /** @var Request */
@@ -30,7 +30,7 @@ class ApiListener implements EventSubscriberInterface
      */
     public function __construct(
         ContainerInterface $container,
-        RequestStack $requestStack
+        RequestStack       $requestStack
     )
     {
         $this->container = $container;
@@ -40,7 +40,7 @@ class ApiListener implements EventSubscriberInterface
     public function getDeliveryModuleOptions(DeliveryModuleOptionEvent $deliveryModuleOptionEvent)
     {
         if ($deliveryModuleOptionEvent->getModule()->getId() !== GeolocatedDelivery::getModuleId()) {
-            return ;
+            return;
         }
         $isValid = true;
         $postage = null;
@@ -66,6 +66,11 @@ class ApiListener implements EventSubscriberInterface
             $orderPostage = $module->getPostage($country, $state);
             $postage = $orderPostage->getAmount();
             $postageTax = $orderPostage->getAmountTax();
+
+            if ($postage === null) {
+                $isValid = false;
+            }
+
         } catch (\Exception $exception) {
             $isValid = false;
         }
@@ -84,8 +89,7 @@ class ApiListener implements EventSubscriberInterface
             ->setMaximumDeliveryDate($maximumDeliveryDate)
             ->setPostage($postage)
             ->setPostageTax($postageTax)
-            ->setPostageUntaxed($postage - $postageTax)
-        ;
+            ->setPostageUntaxed($postage - $postageTax);
 
         $deliveryModuleOptionEvent->appendDeliveryModuleOptions($deliveryModuleOption);
     }
