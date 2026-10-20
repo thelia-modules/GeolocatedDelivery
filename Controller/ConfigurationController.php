@@ -41,6 +41,9 @@ class ConfigurationController extends BaseAdminController
 {
     private const MAXIMUM_TEXT_LENGTH = 255;
 
+    /** Above any delivery price: a typo of a few zeros is refused instead of charged. */
+    public const MAXIMUM_PRICE = 100_000;
+
     #[Route('/stores', name: 'store.create', methods: ['POST'])]
     public function createStore(Request $request, Session $session, TokenProvider $tokenProvider, Geocoder $geocoder): Response
     {
@@ -117,6 +120,7 @@ class ConfigurationController extends BaseAdminController
             $maximum <= $minimum => 'The maximum distance must be greater than the minimum distance.',
             !is_numeric($price) => 'The price must be a number.',
             (float) $price < 0 => 'The price cannot be negative.',
+            (float) $price > self::MAXIMUM_PRICE => 'The price cannot be above 100000.',
             default => null,
         };
 

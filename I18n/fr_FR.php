@@ -5,6 +5,7 @@ return [
     'The address of the store could not be located: check it, or try again later. The store was not added.' => 'L\'adresse de la boutique n\'a pas pu être localisée : vérifiez-la, ou réessayez plus tard. La boutique n\'a pas été ajoutée.',
     'The distances are whole numbers of kilometres, zero or more.' => 'Les distances sont des nombres entiers de kilomètres, positifs ou nuls.',
     'The maximum distance must be greater than the minimum distance.' => 'La distance maximale doit être supérieure à la distance minimale.',
+    'The price cannot be above 100000.' => 'Le prix ne peut pas dépasser 100000.',
     'The price cannot be negative.' => 'Le prix ne peut pas être négatif.',
     'The price must be a number.' => 'Le prix doit être un nombre.',
     'The radius slice does not exist anymore.' => 'La tranche de distance n\'existe plus.',

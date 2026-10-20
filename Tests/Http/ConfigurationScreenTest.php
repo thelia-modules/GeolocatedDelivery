@@ -201,6 +201,37 @@ final class ConfigurationScreenTest extends WebIntegrationTestCase
         self::assertSame(0, GeolocatedDeliveryRadiusQuery::create()->count());
     }
 
+    public function testASlicePricedAboveOneHundredThousandIsRefused(): void
+    {
+        $this->assertPageRenders(self::CONFIGURATION_URL.'?lang=fr');
+
+        $this->client->submit($this->client->getCrawler()->filter('[data-testid="geolocateddelivery-slice-form"]')->form(), [
+            'min_radius' => '0',
+            'max_radius' => '5',
+            'price' => '100000.01',
+        ]);
+
+        self::assertSame(0, GeolocatedDeliveryRadiusQuery::create()->count());
+        $this->client->followRedirect();
+        self::assertStringContainsString(
+            'Le prix ne peut pas dépasser 100000.',
+            $this->client->getCrawler()->filter('[data-testid="bo-flash-danger"]')->text(),
+        );
+    }
+
+    public function testASlicePricedOneHundredThousandIsAccepted(): void
+    {
+        $this->assertPageRenders(self::CONFIGURATION_URL);
+
+        $this->client->submit($this->client->getCrawler()->filter('[data-testid="geolocateddelivery-slice-form"]')->form(), [
+            'min_radius' => '0',
+            'max_radius' => '5',
+            'price' => '100000',
+        ]);
+
+        self::assertSame(100000.0, GeolocatedDeliveryRadiusQuery::create()->findOne()?->getPrice());
+    }
+
     public function testASliceIsAddedThenDeleted(): void
     {
         $this->assertPageRenders(self::CONFIGURATION_URL);

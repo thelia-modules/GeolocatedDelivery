@@ -137,7 +137,7 @@
 				</div>
 				<div class="col-md-3">
 					<label class="form-label" for="geolocateddelivery-price">{{ 'Price (%symbol)'|trans({'%symbol': currency_symbol}, domain) }}</label>
-					<input class="form-control" type="number" min="0" step="0.01" id="geolocateddelivery-price" name="price" required>
+					<input class="form-control" type="number" min="0" max="100000" step="0.01" id="geolocateddelivery-price" name="price" required>
 				</div>
 				<div class="col-12">
 					<button type="submit" class="btn btn-primary btn-sm">{{ 'Add the slice'|trans({}, domain) }}</button>
