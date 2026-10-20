@@ -35,11 +35,16 @@ use Thelia\Tools\URL;
 /**
  * The forms of the configuration page: stores and radius slices are added and deleted one at
  * a time, by POST with the session token, and the page is shown again with what happened.
+ * Every change goes to the administration log (resources geolocateddelivery.store and
+ * geolocateddelivery.radius).
  */
 #[Route('/admin/module/GeolocatedDelivery', name: 'geolocateddelivery.')]
 class ConfigurationController extends BaseAdminController
 {
     private const MAXIMUM_TEXT_LENGTH = 255;
+
+    public const STORE_LOG_RESOURCE = 'geolocateddelivery.store';
+    public const RADIUS_LOG_RESOURCE = 'geolocateddelivery.radius';
 
     /** Above any delivery price: a typo of a few zeros is refused instead of charged. */
     public const MAXIMUM_PRICE = 100_000;
@@ -70,14 +75,16 @@ class ConfigurationController extends BaseAdminController
             return $this->backToTheConfiguration($session, 'danger', 'The address of the store could not be located: check it, or try again later. The store was not added.');
         }
 
-        (new GeolocatedDeliveryStore())
+        $store = (new GeolocatedDeliveryStore())
             ->setName($name)
             ->setStreet($street)
             ->setZipCode($zipCode)
             ->setCity($city)
             ->setLatitude((string) $coordinates->latitude)
-            ->setLongitude((string) $coordinates->longitude)
-            ->save();
+            ->setLongitude((string) $coordinates->longitude);
+        $store->save();
+
+        $this->adminLogAppend(self::STORE_LOG_RESOURCE, AccessManager::CREATE, \sprintf('Store "%s" added', $name), $store->getId());
 
         return $this->backToTheConfiguration($session, 'success', 'The store was added.');
     }
@@ -98,6 +105,8 @@ class ConfigurationController extends BaseAdminController
         }
 
         $store->delete();
+
+        $this->adminLogAppend(self::STORE_LOG_RESOURCE, AccessManager::DELETE, \sprintf('Store "%s" deleted', $store->getName()), $id);
 
         return $this->backToTheConfiguration($session, 'success', 'The store was deleted.');
     }
@@ -128,11 +137,13 @@ class ConfigurationController extends BaseAdminController
             return $this->backToTheConfiguration($session, 'danger', $error);
         }
 
-        (new GeolocatedDeliveryRadius())
+        $slice = (new GeolocatedDeliveryRadius())
             ->setMinRadius($minimum)
             ->setMaxRadius($maximum)
-            ->setPrice((float) $price)
-            ->save();
+            ->setPrice((float) $price);
+        $slice->save();
+
+        $this->adminLogAppend(self::RADIUS_LOG_RESOURCE, AccessManager::CREATE, $this->describe($slice, 'added'), $slice->getId());
 
         return $this->backToTheConfiguration($session, 'success', 'The radius slice was added.');
     }
@@ -154,7 +165,14 @@ class ConfigurationController extends BaseAdminController
 
         $slice->delete();
 
+        $this->adminLogAppend(self::RADIUS_LOG_RESOURCE, AccessManager::DELETE, $this->describe($slice, 'deleted'), $id);
+
         return $this->backToTheConfiguration($session, 'success', 'The radius slice was deleted.');
+    }
+
+    private function describe(GeolocatedDeliveryRadius $slice, string $what): string
+    {
+        return \sprintf('Radius slice from %d to %d km at %.2f %s', $slice->getMinRadius(), $slice->getMaxRadius(), $slice->getPrice(), $what);
     }
 
     private function backToTheConfiguration(Session $session, string $type, string $message): RedirectResponse

@@ -14,6 +14,7 @@ declare(strict_types=1);
 
 namespace GeolocatedDelivery\Tests\Http;
 
+use GeolocatedDelivery\Controller\ConfigurationController;
 use GeolocatedDelivery\GeolocatedDelivery;
 use GeolocatedDelivery\Model\GeolocatedDeliveryRadius;
 use GeolocatedDelivery\Model\GeolocatedDeliveryRadiusQuery;
@@ -32,6 +33,7 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 use Thelia\Core\Security\AccessManager;
 use Thelia\Core\Security\Resource\AdminResources;
 use Thelia\Model\Admin;
+use Thelia\Model\AdminLogQuery;
 use Thelia\Model\AreaDeliveryModule;
 use Thelia\Model\AreaDeliveryModuleQuery;
 use Thelia\Model\AreaQuery;
@@ -264,6 +266,51 @@ final class ConfigurationScreenTest extends WebIntegrationTestCase
         self::assertNull(GeolocatedDeliveryStoreQuery::create()->findPk($store->getId()));
     }
 
+    public function testAddingAndDeletingAStoreGoesToTheAdministrationLog(): void
+    {
+        $this->geocoderAnswers(new MockResponse(json_encode([
+            'type' => 'FeatureCollection',
+            'features' => [['geometry' => ['type' => 'Point', 'coordinates' => [4.835792, 45.765523]], 'properties' => ['postcode' => '69001']]],
+        ], \JSON_THROW_ON_ERROR)));
+        $this->assertPageRenders(self::CONFIGURATION_URL);
+        $this->client->submit($this->client->getCrawler()->filter('[data-testid="geolocateddelivery-store-form"]')->form(), [
+            'name' => 'Lyon centre',
+            'street' => '10 rue de la République',
+            'zip_code' => '69001',
+            'city' => 'Lyon',
+        ]);
+        $store = GeolocatedDeliveryStoreQuery::create()->findOneByName('Lyon centre');
+        self::assertNotNull($store);
+
+        $this->assertPageRenders(self::CONFIGURATION_URL);
+        $this->client->submit($this->client->getCrawler()->filter('[data-testid="geolocateddelivery-store-'.$store->getId().'"] form')->form());
+
+        self::assertSame(
+            [[AccessManager::CREATE, 'Store "Lyon centre" added'], [AccessManager::DELETE, 'Store "Lyon centre" deleted']],
+            $this->logLines(ConfigurationController::STORE_LOG_RESOURCE, $store->getId()),
+        );
+    }
+
+    public function testAddingAndDeletingASliceGoesToTheAdministrationLog(): void
+    {
+        $this->assertPageRenders(self::CONFIGURATION_URL);
+        $this->client->submit($this->client->getCrawler()->filter('[data-testid="geolocateddelivery-slice-form"]')->form(), [
+            'min_radius' => '0',
+            'max_radius' => '10',
+            'price' => '4.5',
+        ]);
+        $slice = GeolocatedDeliveryRadiusQuery::create()->findOne();
+        self::assertNotNull($slice);
+
+        $this->assertPageRenders(self::CONFIGURATION_URL);
+        $this->client->submit($this->client->getCrawler()->filter('[data-testid="geolocateddelivery-slice-'.$slice->getId().'"] form')->form());
+
+        self::assertSame(
+            [[AccessManager::CREATE, 'Radius slice from 0 to 10 km at 4.50 added'], [AccessManager::DELETE, 'Radius slice from 0 to 10 km at 4.50 deleted']],
+            $this->logLines(ConfigurationController::RADIUS_LOG_RESOURCE, $slice->getId()),
+        );
+    }
+
     public function testDeletingWithoutTheTokenChangesNothing(): void
     {
         $store = $this->store('Lyon centre');
@@ -317,6 +364,19 @@ final class ConfigurationScreenTest extends WebIntegrationTestCase
         });
 
         static::getContainer()->set(Geocoder::class, new Geocoder($client, new ArrayAdapter(), new NullLogger(), new GeocodingRateLimiter(new ArrayAdapter(), new RequestStack(), 'test', new LockFactory(new InMemoryStore()))));
+    }
+
+    /**
+     * @return list<array{0: string, 1: string}> action and message of each line, oldest first
+     */
+    private function logLines(string $resource, int $resourceId): array
+    {
+        $lines = [];
+        foreach (AdminLogQuery::create()->filterByResource($resource)->filterByResourceId($resourceId)->orderById()->find() as $line) {
+            $lines[] = [(string) $line->getAction(), (string) $line->getMessage()];
+        }
+
+        return $lines;
     }
 
     private function store(string $name): GeolocatedDeliveryStore
