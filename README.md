@@ -36,7 +36,15 @@ right on the module.
 
 The price of a slice goes through the postage tax rule of the core: the rule set for this
 module on the tax rules page, otherwise the shop-wide delivery tax rule. With no rule, the
-price is charged as entered, as in version 1.0.1. With a rule, the price is before tax.
+price is charged as entered. With a rule, the price is before tax: enter the slice prices
+without tax.
+
+Updating from 1.0.1 changes what the shop charges when such a rule exists. Version 1.0.1
+charged the price as entered and ignored every tax rule; version 2 adds the tax. A slice
+entered at 5.00 tax included, with a 20 % delivery tax rule, is charged 6.00 after the
+update. Before updating, check the tax rules page: if a rule applies to this module or to
+deliveries of the whole shop, enter the slice prices again without tax (5.00 tax included
+at 20 % is 4.17 before tax).
 
 ## How a quote is made
 

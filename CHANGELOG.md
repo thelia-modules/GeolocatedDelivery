@@ -23,6 +23,15 @@ Port to Thelia 3.
 - The install and update scripts create the tables only when missing: activating the
   module again, or updating from 1.0.1, keeps the stores and slices.
 
+Upgrading from 1.0.1:
+
+- The prices of the slices now go through a tax rule: the one set for this module on the
+  tax rules page, otherwise the shop-wide delivery tax rule. Version 1.0.1 charged the
+  price as entered and ignored every tax rule. A shop that entered its prices tax included
+  and has a 20 % delivery tax rule charges 6.00 instead of 5.00 after the update. Enter the
+  slice prices without tax when a rule applies (5.00 tax included at 20 % is 4.17 before
+  tax). Without any rule, nothing changes.
+
 Removed:
 
 - the shipping e-mail `mail_geolocated_delivery` and its templates (the core sends
