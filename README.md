@@ -57,7 +57,8 @@ The local delivery is not offered when:
 - the cart has no delivery address in that country;
 - there is no located store, or no slice contains the distance;
 - the town cannot be located, or the address service is down or too slow (2 seconds to
-  answer, 3 seconds in all).
+  answer, 3 seconds in all);
+- the rate limit refuses the call (see below).
 
 In those cases the other carriers are offered as usual, and a line is written to the log.
 The answer for a town is cached, failures included, so that an outage does not make every
@@ -72,6 +73,30 @@ Within one request, the service is asked only once.
 
 The postage estimate of the cart page uses the same rule. Before the customer gives an
 address, it cannot price the local delivery and leaves it out.
+
+## Security and load: rate limits
+
+Any visitor can make the shop call the address service, one new town after another. Two
+limits apply, counted only when the service is really about to be called: a town already
+in the cache costs nothing, and locating a store from the back office is not limited.
+
+- Per visitor: `GeocodingRateLimiter::VISITOR_LIMIT` new towns (10) per
+  `GeocodingRateLimiter::VISITOR_INTERVAL` (1 minute). The visitor is the client IP of the
+  request, hashed with the kernel secret: no IP is stored in the cache in clear.
+- For the whole shop: `GeocodingRateLimiter::SHOP_LIMIT` calls (40) per
+  `GeocodingRateLimiter::SHOP_INTERVAL` (1 second). The address service allows 50 calls
+  per second and per IP, and its documentation advises a cap at 40 or 45
+  (https://adresse.data.gouv.fr/outils/api-doc/adresse). Without a request (a command or a
+  scheduled task), only this limit applies.
+
+Both are sliding windows, kept in the application cache. A fixed window would let twice the
+limit through around the change of window. No lock is taken: two requests at the same
+instant may both get the last token.
+
+A refused call sends nothing to the service: the local delivery is not offered for that
+address, and a line is written to the log at the info level, with neither the IP nor the
+address. The refusal is not cached, so a visitor over the limit does not deprive the other
+customers of the same town. The limits are constants of the module, not settings.
 
 The module listens to `TheliaEvents::MODULE_DELIVERY_GET_POSTAGE` after the core (priority
 64, the core answers at 128): it never offers a carrier the core turned down. It adds its

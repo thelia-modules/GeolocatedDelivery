@@ -15,6 +15,8 @@ Port to Thelia 3.
   a town the service does not know, so an outage costs one wait per town and per minute
   instead of one per page. The quote and the option of the checkout never throw either: a
   database or cache failure turns the local delivery down and logs the class of the error.
+- Calls to the address service are rate limited: 10 new towns per minute and per visitor
+  (hashed IP), 40 calls per second for the shop. A refused call is not cached.
 - The price goes through the core postage tax rule (the module's own, otherwise the
   shop-wide delivery rule). Without one, it is charged as entered, as before.
 - Back-office page rebuilt for the Twig back office: stores and slices are added and
