@@ -161,7 +161,7 @@ final class PostageListenerTest extends RadiusTestCase
         self::assertNotNull($requestStack->getMainRequest()?->getClientIp(), 'The test request has a client IP.');
         $rateLimiter = new GeocodingRateLimiter(new ArrayAdapter(), $requestStack, 'test', new LockFactory(new InMemoryStore()));
         for ($call = 0; $call < GeocodingRateLimiter::VISITOR_LIMIT; ++$call) {
-            self::assertTrue($rateLimiter->allowsACall());
+            self::assertNull($rateLimiter->refusalOfACall());
         }
         $this->geocoderLimitedBy($rateLimiter, self::townAt(self::LYON_THIRD, '69003'));
         $country = $this->country();

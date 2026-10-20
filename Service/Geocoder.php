@@ -81,7 +81,7 @@ final readonly class Geocoder
         $cached = $this->cache->get(
             'geolocated_delivery.destination.v2.'.$destination->key(),
             function (ItemInterface $item, bool &$save) use ($destination): array {
-                if (!$this->rateLimiter->allowsACall()) {
+                if (null !== $this->rateLimiter->refusalOfACall()) {
                     $this->logger->info('GeolocatedDelivery: too many new towns asked for, the address service is not called.');
                     $save = false;
 

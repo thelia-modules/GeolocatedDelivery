@@ -179,6 +179,44 @@ final class GeocoderRateLimitTest extends TestCase
         self::assertSame(GeocodingRateLimiter::SHOP_LIMIT, $this->requestCount);
     }
 
+    public function testACallTheShopRefusesCostsTheVisitorNoToken(): void
+    {
+        for ($town = 1; $town <= GeocodingRateLimiter::SHOP_LIMIT; ++$town) {
+            $this->visitorAt('198.51.100.'.$town);
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt('203.0.113.7');
+        for ($attempt = 1; $attempt <= 3; ++$attempt) {
+            self::assertNull($this->geocoder->locateDestination($this->town(100 + $attempt)), 'The shop is at its limit.');
+        }
+
+        // Two seconds: the shop's sliding window has emptied, the visitor's minute has not.
+        ClockMock::sleep(2);
+
+        for ($town = 201; $town < 201 + GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            self::assertNotNull($this->geocoder->locateDestination($this->town($town)), 'The visitor still has all the tokens of the minute.');
+        }
+        self::assertNull($this->geocoder->locateDestination($this->town(301)));
+    }
+
+    public function testACallTheVisitorLimitRefusesCostsTheShopNoToken(): void
+    {
+        $this->visitorAt('203.0.113.7');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT + 20; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $left = GeocodingRateLimiter::SHOP_LIMIT - GeocodingRateLimiter::VISITOR_LIMIT;
+        for ($visitor = 1; $visitor <= $left; ++$visitor) {
+            $this->visitorAt('198.51.100.'.$visitor);
+            self::assertNotNull($this->geocoder->locateDestination($this->town(100 + $visitor)), 'The twenty refused calls took nothing from the shop.');
+        }
+
+        $this->visitorAt('192.0.2.1');
+        self::assertNull($this->geocoder->locateDestination($this->town(200)));
+    }
+
     public function testWithoutARequestOnlyTheShopLimitCounts(): void
     {
         for ($town = 1; $town <= GeocodingRateLimiter::SHOP_LIMIT; ++$town) {

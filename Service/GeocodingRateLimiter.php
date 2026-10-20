@@ -55,6 +55,10 @@ final readonly class GeocodingRateLimiter
     public const SHOP_LIMIT = 40;
     public const SHOP_INTERVAL = '1 second';
 
+    /** What refusalOfACall() answers when a limit refuses the call. */
+    public const REFUSED_BY_VISITOR_LIMIT = 'visitor';
+    public const REFUSED_BY_SHOP_LIMIT = 'shop';
+
     private RateLimiterFactory $perVisitor;
     private RateLimiterFactory $perShop;
 
@@ -85,17 +89,30 @@ final readonly class GeocodingRateLimiter
     }
 
     /**
-     * Takes a token for one call to the address service, and says whether the call may go.
+     * Takes a token of each limit for one call to the address service. Null when the call may
+     * go, otherwise the limit that refused it.
+     *
+     * The shop limit is looked at first without taking anything, then the visitor's token is
+     * taken, then the shop's: a call the shop refuses costs the visitor nothing, and a call
+     * the visitor's limit refuses costs the shop nothing. Only two requests racing for the
+     * very last token of the shop, between the look and the take, can cost one of them a
+     * visitor token; the limiters offer no way to give a token back.
      */
-    public function allowsACall(): bool
+    public function refusalOfACall(): ?string
     {
+        $shop = $this->perShop->create('shop');
+
+        if (0 === $shop->consume(0)->getRemainingTokens()) {
+            return self::REFUSED_BY_SHOP_LIMIT;
+        }
+
         $visitorKey = $this->visitorKey();
 
         if (null !== $visitorKey && !$this->perVisitor->create($visitorKey)->consume()->isAccepted()) {
-            return false;
+            return self::REFUSED_BY_VISITOR_LIMIT;
         }
 
-        return $this->perShop->create('shop')->consume()->isAccepted();
+        return $shop->consume()->isAccepted() ? null : self::REFUSED_BY_SHOP_LIMIT;
     }
 
     /**
