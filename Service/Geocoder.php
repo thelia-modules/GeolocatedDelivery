@@ -15,6 +15,7 @@ declare(strict_types=1);
 namespace GeolocatedDelivery\Service;
 
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
@@ -42,6 +43,14 @@ final readonly class Geocoder
 {
     public const ENDPOINT = 'https://api-adresse.data.gouv.fr/search/';
 
+    /**
+     * The HTTP client of the geocoder, declared by GeolocatedDelivery::configureServices().
+     * The framework client (http_client) logs every URL it requests on the http_client
+     * channel, and the URL carries the town and the postal code of the customer: this one
+     * is built without a logger.
+     */
+    public const HTTP_CLIENT_SERVICE = 'GeolocatedDelivery\\AddressServiceHttpClient';
+
     /** A town does not move: a located destination is kept for thirty days. */
     public const CACHE_LIFETIME_SECONDS = 2_592_000;
 
@@ -63,6 +72,7 @@ final readonly class Geocoder
     private const MAX_DURATION_SECONDS = 3.0;
 
     public function __construct(
+        #[Autowire(service: self::HTTP_CLIENT_SERVICE)]
         private HttpClientInterface $httpClient,
         private CacheInterface $cache,
         private LoggerInterface $logger,
@@ -148,6 +158,8 @@ final readonly class Geocoder
                 'query' => $query,
                 'timeout' => self::TIMEOUT_SECONDS,
                 'max_duration' => self::MAX_DURATION_SECONDS,
+                // The service answers where it is asked: a redirection is a failure, not a lead.
+                'max_redirects' => 0,
                 'headers' => ['Accept' => 'application/json'],
             ])->toArray();
         } catch (ExceptionInterface $exception) {

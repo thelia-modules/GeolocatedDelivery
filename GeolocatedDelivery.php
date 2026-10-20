@@ -15,11 +15,14 @@ declare(strict_types=1);
 namespace GeolocatedDelivery;
 
 use GeolocatedDelivery\DependencyInjection\Compiler\PublicServicesForTestsPass;
+use GeolocatedDelivery\Service\Geocoder;
 use Propel\Runtime\Connection\ConnectionInterface;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ServicesConfigurator;
 use Symfony\Component\Finder\Finder;
+use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Thelia\Core\Install\Database;
 use Thelia\Model\Country;
 use Thelia\Model\OrderPostage;
@@ -107,5 +110,12 @@ class GeolocatedDelivery extends AbstractDeliveryModuleWithState
             ])
             ->autowire(true)
             ->autoconfigure(true);
+
+        // Built without a logger, unlike http_client: see Geocoder::HTTP_CLIENT_SERVICE.
+        $servicesConfigurator->set(Geocoder::HTTP_CLIENT_SERVICE, HttpClientInterface::class)
+            ->factory([HttpClient::class, 'create'])
+            ->args([['max_redirects' => 0]])
+            ->autowire(false)
+            ->autoconfigure(false);
     }
 }

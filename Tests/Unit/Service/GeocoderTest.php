@@ -75,6 +75,18 @@ final class GeocoderTest extends TestCase
         self::assertGreaterThan(0, $this->requests[0]['options']['max_duration']);
     }
 
+    public function testARedirectionIsNotFollowed(): void
+    {
+        $geocoder = $this->geocoder(
+            new MockResponse('', ['http_code' => 302, 'response_headers' => ['Location' => 'https://elsewhere.test/search/']]),
+            self::answer([[4.869577, 45.751578, '69003']]),
+        );
+
+        self::assertNull($geocoder->locateDestination($this->lyonThird()));
+        self::assertCount(1, $this->requests);
+        self::assertSame(0, $this->requests[0]['options']['max_redirects'], 'The client is told not to follow it.');
+    }
+
     public function testTheAnswerCarryingThePostalCodeWinsOverTheTownCentre(): void
     {
         // What the service answers for "Lyon" in 69003: the town first, then the arrondissement.
