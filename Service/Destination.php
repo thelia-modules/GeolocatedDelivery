@@ -24,6 +24,10 @@ use Thelia\Model\Country;
  */
 final readonly class Destination
 {
+    /** Longer than any postal code or town name the service knows: such an address is not located. */
+    public const MAXIMUM_ZIP_CODE_LENGTH = 10;
+    public const MAXIMUM_CITY_LENGTH = 80;
+
     private function __construct(
         public string $zipCode,
         public string $city,
@@ -36,6 +40,10 @@ final readonly class Destination
         $city = trim((string) $city);
 
         if ('' === $zipCode || '' === $city) {
+            return null;
+        }
+
+        if (mb_strlen($zipCode) > self::MAXIMUM_ZIP_CODE_LENGTH || mb_strlen($city) > self::MAXIMUM_CITY_LENGTH) {
             return null;
         }
 
