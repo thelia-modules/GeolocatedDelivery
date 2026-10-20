@@ -83,6 +83,9 @@ in the cache costs nothing, and locating a store from the back office is not lim
 - Per visitor: `GeocodingRateLimiter::VISITOR_LIMIT` new towns (10) per
   `GeocodingRateLimiter::VISITOR_INTERVAL` (1 minute). The visitor is the client IP of the
   request, hashed with the kernel secret: no IP is stored in the cache in clear.
+  Behind a reverse proxy or a CDN, declare it in `framework.trusted_proxies` (the
+  `TRUSTED_PROXIES` variable of a Symfony project): otherwise every visitor has the IP of the
+  proxy and they all share this limit.
 - For the whole shop: `GeocodingRateLimiter::SHOP_LIMIT` calls (40) per
   `GeocodingRateLimiter::SHOP_INTERVAL` (1 second). The address service allows 50 calls
   per second and per IP, and its documentation advises a cap at 40 or 45
