@@ -26,6 +26,8 @@ use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use Thelia\Model\Cart;
 use Thelia\Model\Country;
 use Thelia\Model\Module;
@@ -78,7 +80,7 @@ abstract class RadiusTestCase extends IntegrationTestCase
      */
     protected function geocoderAnswers(MockResponse ...$responses): void
     {
-        $this->geocoderLimitedBy(new GeocodingRateLimiter(new ArrayAdapter(), new RequestStack(), 'test'), ...$responses);
+        $this->geocoderLimitedBy(new GeocodingRateLimiter(new ArrayAdapter(), new RequestStack(), 'test', new LockFactory(new InMemoryStore())), ...$responses);
     }
 
     /**

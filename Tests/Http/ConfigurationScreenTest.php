@@ -27,6 +27,8 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use Thelia\Core\Security\AccessManager;
 use Thelia\Core\Security\Resource\AdminResources;
 use Thelia\Model\Admin;
@@ -283,7 +285,7 @@ final class ConfigurationScreenTest extends WebIntegrationTestCase
             return array_shift($responses) ?? new MockResponse('', ['http_code' => 500]);
         });
 
-        static::getContainer()->set(Geocoder::class, new Geocoder($client, new ArrayAdapter(), new NullLogger(), new GeocodingRateLimiter(new ArrayAdapter(), new RequestStack(), 'test')));
+        static::getContainer()->set(Geocoder::class, new Geocoder($client, new ArrayAdapter(), new NullLogger(), new GeocodingRateLimiter(new ArrayAdapter(), new RequestStack(), 'test', new LockFactory(new InMemoryStore()))));
     }
 
     private function store(string $name): GeolocatedDeliveryStore

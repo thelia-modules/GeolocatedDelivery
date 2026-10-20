@@ -5,6 +5,7 @@
   "type": "thelia-module",
   "require": {
     "thelia/installer": "^1.6",
+    "symfony/lock": "7.4.*",
     "symfony/rate-limiter": "7.4.*"
   },
   "extra": {

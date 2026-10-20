@@ -18,6 +18,8 @@ use GeolocatedDelivery\EventListeners\PostageListener;
 use GeolocatedDelivery\Model\GeolocatedDeliveryStoreQuery;
 use GeolocatedDelivery\Service\GeocodingRateLimiter;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Thelia\Core\Event\Delivery\DeliveryPostageEvent;
 use Thelia\Core\Event\TheliaEvents;
@@ -157,7 +159,7 @@ final class PostageListenerTest extends RadiusTestCase
     {
         $requestStack = static::getContainer()->get('request_stack');
         self::assertNotNull($requestStack->getMainRequest()?->getClientIp(), 'The test request has a client IP.');
-        $rateLimiter = new GeocodingRateLimiter(new ArrayAdapter(), $requestStack, 'test');
+        $rateLimiter = new GeocodingRateLimiter(new ArrayAdapter(), $requestStack, 'test', new LockFactory(new InMemoryStore()));
         for ($call = 0; $call < GeocodingRateLimiter::VISITOR_LIMIT; ++$call) {
             self::assertTrue($rateLimiter->allowsACall());
         }

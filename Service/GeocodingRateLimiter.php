@@ -17,6 +17,7 @@ namespace GeolocatedDelivery\Service;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\CacheStorage;
 
@@ -36,8 +37,10 @@ use Symfony\Component\RateLimiter\Storage\CacheStorage;
  * Both are sliding windows: a fixed window lets twice the limit through around the change
  * of window (40 calls at the end of one second, 40 at the start of the next), which would
  * break the 50 per second of the service. The counters live in the application cache, like
- * the located towns; no lock is taken, so two requests at the same instant may both pass
- * the last token.
+ * the located towns, and each one is read and written under a lock of the shop's lock
+ * factory (framework.lock, the store LOCK_DSN names, which the core already uses for the
+ * checkout): without it, requests in parallel would all read the same count and pass
+ * together.
  */
 final readonly class GeocodingRateLimiter
 {
@@ -59,6 +62,7 @@ final readonly class GeocodingRateLimiter
         #[\SensitiveParameter]
         #[Autowire('%kernel.secret%')]
         private string $secret,
+        LockFactory $lockFactory,
     ) {
         $storage = new CacheStorage($cache);
 
@@ -67,14 +71,14 @@ final readonly class GeocodingRateLimiter
             'policy' => 'sliding_window',
             'limit' => self::VISITOR_LIMIT,
             'interval' => self::VISITOR_INTERVAL,
-        ], $storage);
+        ], $storage, $lockFactory);
 
         $this->perShop = new RateLimiterFactory([
             'id' => 'geolocated_delivery_shop',
             'policy' => 'sliding_window',
             'limit' => self::SHOP_LIMIT,
             'interval' => self::SHOP_INTERVAL,
-        ], $storage);
+        ], $storage, $lockFactory);
     }
 
     /**

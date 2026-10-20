@@ -25,6 +25,10 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\Lock\Key;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\PersistingStoreInterface;
+use Symfony\Component\Lock\Store\InMemoryStore;
 
 /**
  * The calls a visitor can make the shop send to the address service. The rate limiter
@@ -36,6 +40,9 @@ final class GeocoderRateLimitTest extends TestCase
     private RequestStack $requestStack;
     private int $requestCount = 0;
     private Geocoder $geocoder;
+
+    /** @var list<string> the resources locked, in order */
+    private array $lockedResources = [];
 
     protected function setUp(): void
     {
@@ -56,7 +63,7 @@ final class GeocoderRateLimitTest extends TestCase
             $client,
             new ArrayAdapter(),
             new NullLogger(),
-            new GeocodingRateLimiter(new ArrayAdapter(), $this->requestStack, 'test-secret'),
+            new GeocodingRateLimiter(new ArrayAdapter(), $this->requestStack, 'test-secret', new LockFactory($this->recordingLockStore())),
         );
     }
 
@@ -140,6 +147,57 @@ final class GeocoderRateLimitTest extends TestCase
 
         self::assertNull($this->geocoder->locateDestination($this->town(GeocodingRateLimiter::SHOP_LIMIT + 1)));
         self::assertSame(GeocodingRateLimiter::SHOP_LIMIT, $this->requestCount);
+    }
+
+    public function testEachCounterIsReadAndWrittenUnderALock(): void
+    {
+        $this->visitorAt('203.0.113.7');
+
+        $this->geocoder->locateDestination($this->town(1));
+
+        self::assertNotEmpty(array_filter($this->lockedResources, static fn (string $resource): bool => str_starts_with($resource, 'geolocated_delivery_visitor-')), 'The visitor counter is locked.');
+        self::assertContains('geolocated_delivery_shop-shop', $this->lockedResources, 'The shop counter is locked.');
+    }
+
+    /**
+     * A lock store in memory that remembers what it locked.
+     */
+    private function recordingLockStore(): PersistingStoreInterface
+    {
+        $lockedResources = &$this->lockedResources;
+
+        return new class($lockedResources) implements PersistingStoreInterface {
+            private InMemoryStore $store;
+
+            /**
+             * @param list<string> $lockedResources
+             */
+            public function __construct(private array &$lockedResources)
+            {
+                $this->store = new InMemoryStore();
+            }
+
+            public function save(Key $key): void
+            {
+                $this->lockedResources[] = (string) $key;
+                $this->store->save($key);
+            }
+
+            public function delete(Key $key): void
+            {
+                $this->store->delete($key);
+            }
+
+            public function exists(Key $key): bool
+            {
+                return $this->store->exists($key);
+            }
+
+            public function putOffExpiration(Key $key, float $ttl): void
+            {
+                $this->store->putOffExpiration($key, $ttl);
+            }
+        };
     }
 
     private function visitorAt(string $ip): void
