@@ -18,7 +18,7 @@ use GeolocatedDelivery\Service\Destination;
 use GeolocatedDelivery\Service\Geocoder;
 use GeolocatedDelivery\Service\GeocodingRateLimiter;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
+use Psr\Log\AbstractLogger;
 use Symfony\Bridge\PhpUnit\ClockMock;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -41,6 +41,9 @@ final class GeocoderRateLimitTest extends TestCase
     private int $requestCount = 0;
     private Geocoder $geocoder;
 
+    /** @var list<array{level: string, message: string, context: array<mixed>}> */
+    private array $logRecords = [];
+
     /** @var list<string> the resources locked, in order */
     private array $lockedResources = [];
 
@@ -62,7 +65,7 @@ final class GeocoderRateLimitTest extends TestCase
         $this->geocoder = new Geocoder(
             $client,
             new ArrayAdapter(),
-            new NullLogger(),
+            $this->recordingLogger(),
             new GeocodingRateLimiter(new ArrayAdapter(), $this->requestStack, 'test-secret', new LockFactory($this->recordingLockStore())),
         );
     }
@@ -235,6 +238,50 @@ final class GeocoderRateLimitTest extends TestCase
 
         self::assertNotEmpty(array_filter($this->lockedResources, static fn (string $resource): bool => str_starts_with($resource, 'geolocated_delivery_visitor-')), 'The visitor counter is locked.');
         self::assertContains('geolocated_delivery_shop-shop', $this->lockedResources, 'The shop counter is locked.');
+    }
+
+    public function testAVisitorRefusalIsLoggedAsInformationAndAShopRefusalAsAWarning(): void
+    {
+        $this->visitorAt('203.0.113.7');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT + 1; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+        self::assertSame(['info'], array_column($this->logRecords, 'level'), 'The visitor refusal.');
+
+        // The ten towns of the first visitor count for the shop too: the 31st other call is refused.
+        for ($visitor = 1; $visitor <= GeocodingRateLimiter::SHOP_LIMIT - GeocodingRateLimiter::VISITOR_LIMIT + 1; ++$visitor) {
+            $this->visitorAt('198.51.100.'.$visitor);
+            $this->geocoder->locateDestination($this->town(100 + $visitor));
+        }
+
+        self::assertSame(['info', 'warning'], array_column($this->logRecords, 'level'), 'The shop refusal.');
+
+        $written = json_encode($this->logRecords, \JSON_THROW_ON_ERROR);
+        foreach (['203.0.113', '198.51.100', 'Town', '69011', '69140'] as $private) {
+            self::assertStringNotContainsString($private, $written);
+        }
+    }
+
+    /**
+     * A logger that remembers what it was told.
+     */
+    private function recordingLogger(): AbstractLogger
+    {
+        $records = &$this->logRecords;
+
+        return new class($records) extends AbstractLogger {
+            /**
+             * @param list<array{level: string, message: string, context: array<mixed>}> $records
+             */
+            public function __construct(private array &$records)
+            {
+            }
+
+            public function log($level, \Stringable|string $message, array $context = []): void
+            {
+                $this->records[] = ['level' => (string) $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
     }
 
     /**

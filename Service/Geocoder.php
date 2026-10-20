@@ -81,8 +81,15 @@ final readonly class Geocoder
         $cached = $this->cache->get(
             'geolocated_delivery.destination.v2.'.$destination->key(),
             function (ItemInterface $item, bool &$save) use ($destination): array {
-                if (null !== $this->rateLimiter->refusalOfACall()) {
-                    $this->logger->info('GeolocatedDelivery: too many new towns asked for, the address service is not called.');
+                $refusal = $this->rateLimiter->refusalOfACall();
+
+                if (null !== $refusal) {
+                    // A visitor over their limit is routine; the whole shop at its limit is worth a look.
+                    if (GeocodingRateLimiter::REFUSED_BY_SHOP_LIMIT === $refusal) {
+                        $this->logger->warning('GeolocatedDelivery: the shop reached its rate limit on the address service, the service is not called.');
+                    } else {
+                        $this->logger->info('GeolocatedDelivery: too many new towns asked for, the address service is not called.');
+                    }
                     $save = false;
 
                     return ['status' => self::REFUSED];
