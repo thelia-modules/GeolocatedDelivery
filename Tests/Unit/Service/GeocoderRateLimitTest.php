@@ -41,15 +41,17 @@ final class GeocoderRateLimitTest extends TestCase
     private int $requestCount = 0;
     private Geocoder $geocoder;
 
-    /** @var list<array{level: string, message: string, context: array<mixed>}> */
-    private array $logRecords = [];
+    /** @var \ArrayObject<int, array{level: string, message: string, context: array<mixed>}> */
+    private \ArrayObject $logRecords;
 
-    /** @var list<string> the resources locked, in order */
-    private array $lockedResources = [];
+    /** @var \ArrayObject<int, string> the resources locked, in order */
+    private \ArrayObject $lockedResources;
 
     protected function setUp(): void
     {
         ClockMock::withClockMock(true);
+        $this->logRecords = new \ArrayObject();
+        $this->lockedResources = new \ArrayObject();
         $this->requestStack = new RequestStack();
 
         $client = new MockHttpClient(function (string $method, string $url): MockResponse {
@@ -236,8 +238,8 @@ final class GeocoderRateLimitTest extends TestCase
 
         $this->geocoder->locateDestination($this->town(1));
 
-        self::assertNotEmpty(array_filter($this->lockedResources, static fn (string $resource): bool => str_starts_with($resource, 'geolocated_delivery_visitor-')), 'The visitor counter is locked.');
-        self::assertContains('geolocated_delivery_shop-shop', $this->lockedResources, 'The shop counter is locked.');
+        self::assertNotEmpty(array_filter($this->lockedResources->getArrayCopy(), static fn (string $resource): bool => str_starts_with($resource, 'geolocated_delivery_visitor-')), 'The visitor counter is locked.');
+        self::assertContains('geolocated_delivery_shop-shop', $this->lockedResources->getArrayCopy(), 'The shop counter is locked.');
     }
 
     public function testAVisitorRefusalIsLoggedAsInformationAndAShopRefusalAsAWarning(): void
@@ -246,7 +248,7 @@ final class GeocoderRateLimitTest extends TestCase
         for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT + 1; ++$town) {
             $this->geocoder->locateDestination($this->town($town));
         }
-        self::assertSame(['info'], array_column($this->logRecords, 'level'), 'The visitor refusal.');
+        self::assertSame(['info'], array_column($this->logRecords->getArrayCopy(), 'level'), 'The visitor refusal.');
 
         // The ten towns of the first visitor count for the shop too: the 31st other call is refused.
         for ($visitor = 1; $visitor <= GeocodingRateLimiter::SHOP_LIMIT - GeocodingRateLimiter::VISITOR_LIMIT + 1; ++$visitor) {
@@ -254,9 +256,9 @@ final class GeocoderRateLimitTest extends TestCase
             $this->geocoder->locateDestination($this->town(100 + $visitor));
         }
 
-        self::assertSame(['info', 'warning'], array_column($this->logRecords, 'level'), 'The shop refusal.');
+        self::assertSame(['info', 'warning'], array_column($this->logRecords->getArrayCopy(), 'level'), 'The shop refusal.');
 
-        $written = json_encode($this->logRecords, \JSON_THROW_ON_ERROR);
+        $written = json_encode($this->logRecords->getArrayCopy(), \JSON_THROW_ON_ERROR);
         foreach (['203.0.113', '198.51.100', 'Town', '69011', '69140'] as $private) {
             self::assertStringNotContainsString($private, $written);
         }
@@ -267,19 +269,17 @@ final class GeocoderRateLimitTest extends TestCase
      */
     private function recordingLogger(): AbstractLogger
     {
-        $records = &$this->logRecords;
-
-        return new class($records) extends AbstractLogger {
+        return new class($this->logRecords) extends AbstractLogger {
             /**
-             * @param list<array{level: string, message: string, context: array<mixed>}> $records
+             * @param \ArrayObject<int, array{level: string, message: string, context: array<mixed>}> $records
              */
-            public function __construct(private array &$records)
+            public function __construct(private readonly \ArrayObject $records)
             {
             }
 
             public function log($level, \Stringable|string $message, array $context = []): void
             {
-                $this->records[] = ['level' => (string) $level, 'message' => (string) $message, 'context' => $context];
+                $this->records->append(['level' => (string) $level, 'message' => (string) $message, 'context' => $context]);
             }
         };
     }
@@ -289,22 +289,20 @@ final class GeocoderRateLimitTest extends TestCase
      */
     private function recordingLockStore(): PersistingStoreInterface
     {
-        $lockedResources = &$this->lockedResources;
-
-        return new class($lockedResources) implements PersistingStoreInterface {
+        return new class($this->lockedResources) implements PersistingStoreInterface {
             private InMemoryStore $store;
 
             /**
-             * @param list<string> $lockedResources
+             * @param \ArrayObject<int, string> $lockedResources
              */
-            public function __construct(private array &$lockedResources)
+            public function __construct(private readonly \ArrayObject $lockedResources)
             {
                 $this->store = new InMemoryStore();
             }
 
             public function save(Key $key): void
             {
-                $this->lockedResources[] = (string) $key;
+                $this->lockedResources->append((string) $key);
                 $this->store->save($key);
             }
 
