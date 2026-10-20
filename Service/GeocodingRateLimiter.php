@@ -41,6 +41,9 @@ use Symfony\Component\RateLimiter\Storage\CacheStorage;
  * factory (framework.lock, the store LOCK_DSN names, which the core already uses for the
  * checkout): without it, requests in parallel would all read the same count and pass
  * together.
+ *
+ * An IPv6 visitor is counted by the /64 prefix of the address: a single connection usually
+ * receives a whole /64, and would otherwise get a fresh limit with every address of it.
  */
 final readonly class GeocodingRateLimiter
 {
@@ -86,13 +89,32 @@ final readonly class GeocodingRateLimiter
      */
     public function allowsACall(): bool
     {
-        $clientIp = $this->requestStack->getMainRequest()?->getClientIp();
+        $visitorKey = $this->visitorKey();
 
-        if (null !== $clientIp && '' !== $clientIp
-            && !$this->perVisitor->create(hash_hmac('sha256', $clientIp, $this->secret))->consume()->isAccepted()) {
+        if (null !== $visitorKey && !$this->perVisitor->create($visitorKey)->consume()->isAccepted()) {
             return false;
         }
 
         return $this->perShop->create('shop')->consume()->isAccepted();
+    }
+
+    /**
+     * The hashed IP of the visitor, an IPv6 cut to its /64 prefix. Null without a request.
+     */
+    private function visitorKey(): ?string
+    {
+        $clientIp = $this->requestStack->getMainRequest()?->getClientIp();
+
+        if (null === $clientIp || '' === $clientIp) {
+            return null;
+        }
+
+        $packed = @inet_pton($clientIp);
+
+        if (\is_string($packed) && 16 === \strlen($packed)) {
+            $clientIp = (string) inet_ntop(substr($packed, 0, 8).str_repeat("\0", 8)).'/64';
+        }
+
+        return hash_hmac('sha256', $clientIp, $this->secret);
     }
 }

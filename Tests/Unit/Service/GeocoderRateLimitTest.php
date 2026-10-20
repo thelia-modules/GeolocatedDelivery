@@ -97,6 +97,46 @@ final class GeocoderRateLimitTest extends TestCase
         self::assertSame(GeocodingRateLimiter::VISITOR_LIMIT + 1, $this->requestCount);
     }
 
+    public function testTwoAddressesOfTheSameIpv6Slash64ShareTheLimit(): void
+    {
+        $this->visitorAt('2001:db8:1:2::10');
+        for ($town = 1; $town <= 5; ++$town) {
+            self::assertNotNull($this->geocoder->locateDestination($this->town($town)));
+        }
+
+        $this->visitorAt('2001:db8:1:2:ffff:ffff:ffff:ffff');
+        for ($town = 6; $town <= GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            self::assertNotNull($this->geocoder->locateDestination($this->town($town)));
+        }
+
+        self::assertNull($this->geocoder->locateDestination($this->town(11)), 'The eleventh town of the /64 is refused.');
+        self::assertSame(GeocodingRateLimiter::VISITOR_LIMIT, $this->requestCount);
+    }
+
+    public function testAnotherIpv6Slash64IsStillServed(): void
+    {
+        $this->visitorAt('2001:db8:1:2::10');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT + 1; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt('2001:db8:1:3::10');
+
+        self::assertNotNull($this->geocoder->locateDestination($this->town(12)));
+    }
+
+    public function testAnIpv4AddressIsCountedWhole(): void
+    {
+        $this->visitorAt('203.0.113.7');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT + 1; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt('203.0.113.8');
+
+        self::assertNotNull($this->geocoder->locateDestination($this->town(12)));
+    }
+
     public function testATownAlreadyCachedCostsNoToken(): void
     {
         $this->visitorAt('203.0.113.7');
