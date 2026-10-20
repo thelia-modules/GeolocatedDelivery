@@ -16,12 +16,18 @@ Port to Thelia 3.
   instead of one per page. The quote and the option of the checkout never throw either: a
   database or cache failure turns the local delivery down and logs the class of the error.
 - Calls to the address service are rate limited: 10 new towns per minute and per visitor
-  (hashed IP), 40 calls per second for the shop. A refused call is not cached.
+  (hashed IP, an IPv6 counted by its /64), 40 calls per second for the shop. The counters
+  are taken under the shop lock, a refusal costs no token of the other limit, and is not
+  cached; a refusal of the shop limit is logged as a warning.
+- The address service is called with a client of its own, which logs no URL (the town and
+  the postal code of the customer) and follows no redirection. A postal code longer than
+  10 characters or a town longer than 80 is not sent.
 - The price goes through the core postage tax rule (the module's own, otherwise the
   shop-wide delivery rule). Without one, it is charged as entered, as before.
 - Back-office page rebuilt for the Twig back office: stores and slices are added and
   deleted with the session token and the update right on the module, and refusals are
-  explained on the page. A warning shows while the module serves no shipping zone.
+  explained on the page. A slice price is between 0 and 100000. Every change is written
+  to the administration log. A warning shows while the module serves no shipping zone.
 - The install and update scripts create the tables only when missing: activating the
   module again, or updating from 1.0.1, keeps the stores and slices.
 

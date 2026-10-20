@@ -27,10 +27,12 @@ only when they do not exist.
    cannot be located, the store is not saved and the page tells you so.
 3. Add the radius slices: a distance from, a distance to (whole kilometres) and a price.
    The first slice containing the distance gives the price, bounds included. A slice whose
-   upper distance is not above its lower distance, or with a negative price, is refused.
+   upper distance is not above its lower distance, or priced below 0 or above 100000, is
+   refused.
 
 Stores and slices are added and deleted one by one. Changing them requires the update
-right on the module.
+right on the module, and each change is written to the administration log (resources
+`geolocateddelivery.store` and `geolocateddelivery.radius`).
 
 ## Price and tax
 
@@ -74,6 +76,11 @@ Within one request, the service is asked only once.
 The postage estimate of the cart page uses the same rule. Before the customer gives an
 address, it cannot price the local delivery and leaves it out.
 
+The module listens to `TheliaEvents::MODULE_DELIVERY_GET_POSTAGE` after the core (priority
+64, the core answers at 128): it never offers a carrier the core turned down. It adds its
+option to `TheliaEvents::MODULE_DELIVERY_GET_OPTIONS`, which the Flexy checkout needs to list
+the carrier.
+
 ## Security and load: rate limits
 
 Any visitor can make the shop call the address service, one new town after another. Two
@@ -82,29 +89,50 @@ in the cache costs nothing, and locating a store from the back office is not lim
 
 - Per visitor: `GeocodingRateLimiter::VISITOR_LIMIT` new towns (10) per
   `GeocodingRateLimiter::VISITOR_INTERVAL` (1 minute). The visitor is the client IP of the
-  request, hashed with the kernel secret: no IP is stored in the cache in clear.
-  Behind a reverse proxy or a CDN, declare it in `framework.trusted_proxies` (the
-  `TRUSTED_PROXIES` variable of a Symfony project): otherwise every visitor has the IP of the
-  proxy and they all share this limit.
+  request, hashed with the kernel secret: no IP is stored in the cache in clear. An IPv6
+  visitor is counted by the /64 prefix of the address, since one connection usually gets a
+  whole /64; an IPv4 address counts whole.
 - For the whole shop: `GeocodingRateLimiter::SHOP_LIMIT` calls (40) per
   `GeocodingRateLimiter::SHOP_INTERVAL` (1 second). The address service allows 50 calls
   per second and per IP, and its documentation advises a cap at 40 or 45
   (https://adresse.data.gouv.fr/outils/api-doc/adresse). Without a request (a command or a
   scheduled task), only this limit applies.
 
-Both are sliding windows, kept in the application cache. A fixed window would let twice the
-limit through around the change of window. No lock is taken: two requests at the same
-instant may both get the last token.
+The client IP is only as reliable as the proxy configuration of the shop:
+
+- behind a reverse proxy or a CDN that is not declared in `framework.trusted_proxies` (the
+  `TRUSTED_PROXIES` variable of a Symfony project), every visitor has the IP of the proxy
+  and they all share the per-visitor limit;
+- the other way round, a `trusted_proxies` wider than the real proxies (`REMOTE_ADDR`,
+  `0.0.0.0/0`, a whole private range a visitor can reach) makes Symfony believe the
+  `X-Forwarded-For` header a visitor writes himself: he can then claim a new IP with each
+  request and get around the per-visitor limit. The shop limit still holds. Declare only
+  the addresses of your own proxies.
+
+Both limits are sliding windows, kept in the application cache. A fixed window would let
+twice the limit through around the change of window. Each counter is read and written
+under a lock of the shop's lock factory (`framework.lock`, the store `LOCK_DSN` names),
+so that requests in parallel cannot all take the last token. The shop limit is looked at
+before the visitor's token is taken: a call the shop refuses costs the visitor nothing, and
+a call the visitor's limit refuses costs the shop nothing.
 
 A refused call sends nothing to the service: the local delivery is not offered for that
-address, and a line is written to the log at the info level, with neither the IP nor the
 address. The refusal is not cached, so a visitor over the limit does not deprive the other
-customers of the same town. The limits are constants of the module, not settings.
+customers of the same town. It is logged with neither the IP nor the address: at the info
+level when a visitor reaches his limit, at the warning level when the whole shop reaches
+its own, which is worth a look. The limits are constants of the module, not settings.
 
-The module listens to `TheliaEvents::MODULE_DELIVERY_GET_POSTAGE` after the core (priority
-64, the core answers at 128): it never offers a carrier the core turned down. It adds its
-option to `TheliaEvents::MODULE_DELIVERY_GET_OPTIONS`, which the Flexy checkout needs to list
-the carrier.
+The geocoder has its own HTTP client, built without a logger: the framework client logs
+the URL of every request on the `http_client` channel, and the URL carries the town and the
+postal code of the customer. It follows no redirection. A postal code longer than 10
+characters or a town longer than 80 is not sent at all.
+
+Known limits, not handled by the module:
+
+- there is no cap per cart: a visitor who changes IP (a mobile network, a pool of proxies)
+  gets a new per-visitor allowance each time, up to the shop limit;
+- there is no circuit breaker: during an outage, each new town still waits for the timeout
+  once a minute (the failure is cached for a minute), within the rate limits.
 
 ## Personal data
 
