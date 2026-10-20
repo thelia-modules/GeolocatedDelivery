@@ -8,6 +8,9 @@
     "symfony/lock": "7.4.*",
     "symfony/rate-limiter": "7.4.*"
   },
+  "require-dev": {
+    "symfony/phpunit-bridge": "7.4.*"
+  },
   "extra": {
     "installer-name": "GeolocatedDelivery"
   }
