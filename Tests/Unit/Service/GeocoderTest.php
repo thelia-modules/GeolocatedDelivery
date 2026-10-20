@@ -19,6 +19,7 @@ use GeolocatedDelivery\Service\Geocoder;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpClient\Exception\TransportException;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -27,6 +28,14 @@ final class GeocoderTest extends TestCase
 {
     /** @var list<array{url: string, options: array<string, mixed>}> */
     private array $requests = [];
+
+    /** The clock of the cache: the tests move it forward instead of waiting. */
+    private MockClock $clock;
+
+    protected function setUp(): void
+    {
+        $this->clock = new MockClock();
+    }
 
     public function testTheCoordinatesAreReadLongitudeFirstFromTheAnswer(): void
     {
@@ -122,7 +131,7 @@ final class GeocoderTest extends TestCase
         self::assertEquals($first, $second);
     }
 
-    public function testAFailureIsNotKeptAndTheTownIsAskedForAgain(): void
+    public function testATechnicalFailureIsKeptForAMinute(): void
     {
         $geocoder = $this->geocoder(
             new MockResponse('Service Unavailable', ['http_code' => 503]),
@@ -130,6 +139,57 @@ final class GeocoderTest extends TestCase
         );
 
         self::assertNull($geocoder->locateDestination($this->lyonThird()));
+        self::assertNull($geocoder->locateDestination($this->lyonThird()));
+        self::assertCount(1, $this->requests, 'During an outage, the next quote does not wait on the service again.');
+
+        $this->clock->sleep(55);
+        self::assertNull($geocoder->locateDestination($this->lyonThird()));
+        self::assertCount(1, $this->requests);
+
+        $this->clock->sleep(10);
+        self::assertNotNull($geocoder->locateDestination($this->lyonThird()), 'A minute later, the service is asked again.');
+        self::assertCount(2, $this->requests);
+    }
+
+    public function testAnAnswerThatCannotBeReadIsKeptForAMinuteAsWell(): void
+    {
+        $geocoder = $this->geocoder(new MockResponse('<html>maintenance</html>'), self::answer([[4.869577, 45.751578, '69003']]));
+
+        self::assertNull($geocoder->locateDestination($this->lyonThird()));
+        $this->clock->sleep(65);
+
+        self::assertNotNull($geocoder->locateDestination($this->lyonThird()));
+        self::assertCount(2, $this->requests);
+    }
+
+    public function testATownTheServiceDoesNotKnowIsKeptForAnHour(): void
+    {
+        $geocoder = $this->geocoder(
+            new MockResponse('{"type":"FeatureCollection","features":[],"query":"Nowhere"}'),
+            self::answer([[4.869577, 45.751578, '69003']]),
+        );
+
+        self::assertNull($geocoder->locateDestination($this->lyonThird()));
+        $this->clock->sleep(3_500);
+        self::assertNull($geocoder->locateDestination($this->lyonThird()));
+        self::assertCount(1, $this->requests);
+
+        $this->clock->sleep(200);
+        self::assertNotNull($geocoder->locateDestination($this->lyonThird()));
+        self::assertCount(2, $this->requests);
+    }
+
+    public function testALocatedTownIsKeptThirtyDays(): void
+    {
+        $geocoder = $this->geocoder(self::answer([[4.869577, 45.751578, '69003']]), self::answer([[4.869577, 45.751578, '69003']]));
+        $day = 86_400;
+
+        $geocoder->locateDestination($this->lyonThird());
+        $this->clock->sleep(29 * $day);
+        self::assertNotNull($geocoder->locateDestination($this->lyonThird()));
+        self::assertCount(1, $this->requests);
+
+        $this->clock->sleep(2 * $day);
         self::assertNotNull($geocoder->locateDestination($this->lyonThird()));
         self::assertCount(2, $this->requests);
     }
@@ -164,7 +224,7 @@ final class GeocoderTest extends TestCase
             return array_shift($responses) ?? new MockResponse('', ['http_code' => 500]);
         });
 
-        return new Geocoder($client, new ArrayAdapter(), new NullLogger());
+        return new Geocoder($client, new ArrayAdapter(clock: $this->clock), new NullLogger());
     }
 
     /**

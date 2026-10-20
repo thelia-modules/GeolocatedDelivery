@@ -11,7 +11,9 @@ Port to Thelia 3.
   address, once, when they are saved.
 - A failure of the address service no longer breaks the checkout: the local delivery is
   not offered, the other carriers are, and the failure is logged. Requests are limited to
-  3 seconds.
+  3 seconds, and a failure is cached too: a minute after a technical failure, an hour for
+  a town the service does not know, so an outage costs one wait per town and per minute
+  instead of one per page.
 - The price goes through the core postage tax rule (the module's own, otherwise the
   shop-wide delivery rule). Without one, it is charged as entered, as before.
 - Back-office page rebuilt for the Twig back office: stores and slices are added and

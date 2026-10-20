@@ -52,8 +52,15 @@ The local delivery is not offered when:
   answer, 3 seconds in all).
 
 In those cases the other carriers are offered as usual, and a line is written to the log.
-A failed lookup is not cached: the next request asks again, and within one request the
-service is asked only once.
+The answer for a town is cached, failures included, so that an outage does not make every
+checkout page wait on the service:
+
+- a located town is kept for thirty days;
+- a town the service does not know is asked for again after an hour;
+- after a technical failure (no answer, an HTTP error, an answer without usable
+  coordinates), the service is asked again after a minute.
+
+Within one request, the service is asked only once.
 
 The postage estimate of the cart page uses the same rule. Before the customer gives an
 address, it cannot price the local delivery and leaves it out.
@@ -68,8 +75,8 @@ the carrier.
 To locate a delivery address, the module sends the postal code and the city of the
 customer to the Base Adresse Nationale (`https://api-adresse.data.gouv.fr/search/`), a
 public service run by the French State. The street, the name and the other details of the
-customer are never sent. A located town is kept in the shop cache for thirty days, under a
-hash of its postal code and city.
+customer are never sent. The answer is kept in the shop cache under a hash of the postal
+code and the city: thirty days for a located town, less for a failure (see above).
 
 Stores are sent with their full address, which is not personal data.
 
