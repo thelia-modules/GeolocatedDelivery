@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'Actions' => 'Actions',
+    'Add the slice' => 'Ajouter la tranche',
+    'Add the store' => 'Ajouter la boutique',
+    'Address' => 'Adresse',
+    'City' => 'Ville',
+    'Delete this slice' => 'Supprimer cette tranche',
+    'Delete this store' => 'Supprimer cette boutique',
+    'From (km)' => 'De (km)',
+    'Manage the shipping zones of the module' => 'Gérer les zones de livraison du module',
+    'Name' => 'Nom',
+    'Not located: this store is ignored. Delete it and add it again.' => 'Non localisée : cette boutique est ignorée. Supprimez-la puis ajoutez-la de nouveau.',
+    'Postal code' => 'Code postal',
+    'Price (%symbol)' => 'Prix (%symbol)',
+    'Radius slices' => 'Tranches de distance',
+    'Stores' => 'Boutiques',
+    'Street' => 'Rue',
+    'The distance is measured from the delivery address to the nearest store, as the crow flies. A store is located from its full address when it is saved.' => 'La distance est mesurée à vol d\'oiseau entre l\'adresse de livraison et la boutique la plus proche. Une boutique est localisée à partir de son adresse complète lors de son enregistrement.',
+    'The first slice containing the distance gives the price, bounds included. Beyond the last slice, the local delivery is not offered. The price is before tax when a postage tax rule applies to the module.' => 'La première tranche qui contient la distance donne le prix, bornes comprises. Au-delà de la dernière tranche, la livraison locale n\'est pas proposée. Le prix est hors taxes quand une règle de taxe s\'applique aux frais de port du module.',
+    'The local delivery is offered in no shipping zone yet: attach the module to the zones it serves, the checkout never offers it elsewhere.' => 'La livraison locale n\'est proposée dans aucune zone de livraison : rattachez le module aux zones qu\'il dessert, le tunnel de commande ne le propose jamais ailleurs.',
+    'There is no radius slice: the local delivery is offered to no address.' => 'Aucune tranche de distance : la livraison locale n\'est proposée à aucune adresse.',
+    'There is no store: the local delivery is offered to no address.' => 'Aucune boutique : la livraison locale n\'est proposée à aucune adresse.',
+    'To (km)' => 'À (km)',
+];
