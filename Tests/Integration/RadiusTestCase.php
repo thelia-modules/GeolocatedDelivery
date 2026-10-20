@@ -122,6 +122,29 @@ abstract class RadiusTestCase extends IntegrationTestCase
         return $cart;
     }
 
+    /**
+     * Runs the call while the store table cannot be read, as when the module tables are
+     * missing: a temporary table of the same name hides the real one for the test
+     * connection, without the implicit commit a DDL statement on the real table would make.
+     *
+     * @template T
+     *
+     * @param callable(): T $call
+     *
+     * @return T
+     */
+    protected function withTheStoreTableUnreadable(callable $call): mixed
+    {
+        $connection = $this->getPropelConnection();
+        $connection->exec('CREATE TEMPORARY TABLE `geolocated_delivery_store` (id INT)');
+
+        try {
+            return $call();
+        } finally {
+            $connection->exec('DROP TEMPORARY TABLE `geolocated_delivery_store`');
+        }
+    }
+
     protected function country(): Country
     {
         return $this->factory->country();

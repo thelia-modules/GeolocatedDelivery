@@ -17,6 +17,7 @@ namespace GeolocatedDelivery\EventListeners;
 use GeolocatedDelivery\GeolocatedDelivery;
 use GeolocatedDelivery\Service\PostageBuilder;
 use GeolocatedDelivery\Service\RadiusQuote;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Thelia\Core\Event\Delivery\DeliveryPostageEvent;
 use Thelia\Core\Event\TheliaEvents;
@@ -28,7 +29,8 @@ use Thelia\Core\Event\TheliaEvents;
  * module only receives the country there. This listener runs after it, on the same event,
  * and replaces its answer with the quote of the address: in reach, the price of the slice;
  * out of reach or not locatable, the module is not valid. It never accepts what the core
- * already refused, and never throws, so the other carriers are offered whatever happens here.
+ * already refused, and never throws, so the other carriers are offered whatever happens here:
+ * a database or a cache failing turns the module down and logs the class of the failure.
  */
 final readonly class PostageListener implements EventSubscriberInterface
 {
@@ -37,6 +39,7 @@ final readonly class PostageListener implements EventSubscriberInterface
     public function __construct(
         private RadiusQuote $radiusQuote,
         private PostageBuilder $postageBuilder,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -48,6 +51,21 @@ final readonly class PostageListener implements EventSubscriberInterface
     }
 
     public function quote(DeliveryPostageEvent $event): void
+    {
+        try {
+            $this->quoteTheAddress($event);
+        } catch (\Throwable $exception) {
+            $this->logger->error('GeolocatedDelivery: the quote failed, the local delivery is not offered.', [
+                'failure' => $exception::class,
+            ]);
+
+            if ($event->getModule() instanceof GeolocatedDelivery) {
+                $event->setValidModule(false);
+            }
+        }
+    }
+
+    private function quoteTheAddress(DeliveryPostageEvent $event): void
     {
         $module = $event->getModule();
 

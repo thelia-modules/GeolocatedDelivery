@@ -58,6 +58,15 @@ final class DeliveryOptionListenerTest extends RadiusTestCase
         self::assertSame([], $this->optionsFor($this->cartShippedTo('69003', 'Lyon', $country), $country));
     }
 
+    public function testADatabaseFailureGivesNoOptionAndNoException(): void
+    {
+        $this->geocoderAnswers(self::townAt(self::LYON_THIRD, '69003'));
+        $country = $this->country();
+        $cart = $this->cartShippedTo('69003', 'Lyon', $country);
+
+        self::assertSame([], $this->withTheStoreTableUnreadable(fn (): array => $this->optionsFor($cart, $country)));
+    }
+
     /**
      * @return list<DeliveryModuleOption>
      */

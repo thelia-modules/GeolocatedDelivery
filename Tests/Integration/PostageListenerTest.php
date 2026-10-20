@@ -140,6 +140,17 @@ final class PostageListenerTest extends RadiusTestCase
         self::assertFalse($event->isValidModule());
     }
 
+    public function testADatabaseFailureTurnsTheModuleDownWithoutAnException(): void
+    {
+        $this->geocoderAnswers(self::townAt(self::LYON_THIRD, '69003'));
+        $country = $this->country();
+        $cart = $this->cartShippedTo('69003', 'Lyon', $country);
+
+        $event = $this->withTheStoreTableUnreadable(fn (): DeliveryPostageEvent => $this->quote($cart, null, $country));
+
+        self::assertFalse($event->isValidModule());
+    }
+
     public function testTheSameTownIsLocatedOnceForTheRequest(): void
     {
         $this->geocoderAnswers(new MockResponse('Service Unavailable', ['http_code' => 503]));

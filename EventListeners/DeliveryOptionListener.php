@@ -17,6 +17,7 @@ namespace GeolocatedDelivery\EventListeners;
 use GeolocatedDelivery\GeolocatedDelivery;
 use GeolocatedDelivery\Service\PostageBuilder;
 use GeolocatedDelivery\Service\RadiusQuote;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Thelia\Api\Bridge\Propel\Event\DeliveryModuleOptionEvent;
 use Thelia\Api\Resource\DeliveryModuleOption;
@@ -28,7 +29,8 @@ use Thelia\Model\Module;
 /**
  * The option the checkout shows for the local delivery. A delivery module without an option
  * is not listed by the Flexy checkout, even when it is valid; an address out of reach gets
- * no option, so the carrier does not appear.
+ * no option, so the carrier does not appear. Never throws: a database or a cache failing
+ * leaves the option out and logs the class of the failure.
  */
 final readonly class DeliveryOptionListener implements EventSubscriberInterface
 {
@@ -38,6 +40,7 @@ final readonly class DeliveryOptionListener implements EventSubscriberInterface
     public function __construct(
         private RadiusQuote $radiusQuote,
         private PostageBuilder $postageBuilder,
+        private LoggerInterface $logger,
     ) {
     }
 
@@ -49,6 +52,17 @@ final readonly class DeliveryOptionListener implements EventSubscriberInterface
     }
 
     public function addOption(DeliveryModuleOptionEvent $event): void
+    {
+        try {
+            $this->addTheOptionOfTheAddress($event);
+        } catch (\Throwable $exception) {
+            $this->logger->error('GeolocatedDelivery: the delivery option could not be built, the local delivery is not offered.', [
+                'failure' => $exception::class,
+            ]);
+        }
+    }
+
+    private function addTheOptionOfTheAddress(DeliveryModuleOptionEvent $event): void
     {
         $module = $event->getModule();
 
