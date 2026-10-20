@@ -71,14 +71,14 @@ final class ConfigurationScreenTest extends WebIntegrationTestCase
     public function testThePageListsTheStoresAndTheSlices(): void
     {
         $store = $this->store('Lyon centre');
-        $slice = (new GeolocatedDeliveryRadius())->setMinRadius(0)->setMaxRadius(10)->setPrice(5.0);
+        $slice = (new GeolocatedDeliveryRadius())->setMinRadius(0)->setMaxRadius(10)->setPrice(5.5);
         $slice->save();
 
         $this->assertPageRenders(self::CONFIGURATION_URL);
 
         $crawler = $this->client->getCrawler();
         self::assertStringContainsString('Lyon centre', $crawler->filter('[data-testid="geolocateddelivery-store-'.$store->getId().'"]')->text());
-        self::assertSame(1, $crawler->filter('[data-testid="geolocateddelivery-slice-'.$slice->getId().'"]')->count());
+        self::assertStringContainsString('5.50', $crawler->filter('[data-testid="geolocateddelivery-slice-'.$slice->getId().'"]')->text());
     }
 
     public function testThePageWarnsWhileTheModuleServesNoShippingZone(): void

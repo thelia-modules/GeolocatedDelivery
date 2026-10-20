@@ -104,7 +104,7 @@
 							<tr data-testid="geolocateddelivery-slice-{{ slice.id }}">
 								<td>{{ slice.min_radius }}</td>
 								<td>{{ slice.max_radius }}</td>
-								<td>{{ slice.price }}</td>
+								<td>{{ slice.price|number_format(2, '.', ' ') }}</td>
 								<td class="text-end">
 									{% if can_update %}
 										<form method="post" class="d-inline" action="{{ path('geolocateddelivery.radius.delete', {id: slice.id}) }}">
