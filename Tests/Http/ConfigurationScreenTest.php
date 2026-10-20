@@ -20,11 +20,13 @@ use GeolocatedDelivery\Model\GeolocatedDeliveryRadiusQuery;
 use GeolocatedDelivery\Model\GeolocatedDeliveryStore;
 use GeolocatedDelivery\Model\GeolocatedDeliveryStoreQuery;
 use GeolocatedDelivery\Service\Geocoder;
+use GeolocatedDelivery\Service\GeocodingRateLimiter;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Core\Security\AccessManager;
 use Thelia\Core\Security\Resource\AdminResources;
 use Thelia\Model\Admin;
@@ -281,7 +283,7 @@ final class ConfigurationScreenTest extends WebIntegrationTestCase
             return array_shift($responses) ?? new MockResponse('', ['http_code' => 500]);
         });
 
-        static::getContainer()->set(Geocoder::class, new Geocoder($client, new ArrayAdapter(), new NullLogger()));
+        static::getContainer()->set(Geocoder::class, new Geocoder($client, new ArrayAdapter(), new NullLogger(), new GeocodingRateLimiter(new ArrayAdapter(), new RequestStack(), 'test')));
     }
 
     private function store(string $name): GeolocatedDeliveryStore

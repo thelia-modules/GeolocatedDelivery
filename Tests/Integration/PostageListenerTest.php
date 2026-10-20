@@ -16,6 +16,8 @@ namespace GeolocatedDelivery\Tests\Integration;
 
 use GeolocatedDelivery\EventListeners\PostageListener;
 use GeolocatedDelivery\Model\GeolocatedDeliveryStoreQuery;
+use GeolocatedDelivery\Service\GeocodingRateLimiter;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Thelia\Core\Event\Delivery\DeliveryPostageEvent;
 use Thelia\Core\Event\TheliaEvents;
@@ -149,6 +151,23 @@ final class PostageListenerTest extends RadiusTestCase
         $event = $this->withTheStoreTableUnreadable(fn (): DeliveryPostageEvent => $this->quote($cart, null, $country));
 
         self::assertFalse($event->isValidModule());
+    }
+
+    public function testAVisitorOverTheRateLimitGetsNoLocalDeliveryAndNoException(): void
+    {
+        $requestStack = static::getContainer()->get('request_stack');
+        self::assertNotNull($requestStack->getMainRequest()?->getClientIp(), 'The test request has a client IP.');
+        $rateLimiter = new GeocodingRateLimiter(new ArrayAdapter(), $requestStack, 'test');
+        for ($call = 0; $call < GeocodingRateLimiter::VISITOR_LIMIT; ++$call) {
+            self::assertTrue($rateLimiter->allowsACall());
+        }
+        $this->geocoderLimitedBy($rateLimiter, self::townAt(self::LYON_THIRD, '69003'));
+        $country = $this->country();
+
+        $event = $this->quote($this->cartShippedTo('69003', 'Lyon', $country), null, $country);
+
+        self::assertFalse($event->isValidModule());
+        self::assertSame([], $this->requestedUrls, 'The address service is not called.');
     }
 
     public function testTheSameTownIsLocatedOnceForTheRequest(): void

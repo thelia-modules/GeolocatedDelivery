@@ -33,6 +33,10 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * for thirty days, a town the service does not know for an hour, a technical failure (no
  * answer, an HTTP error, an answer that is not JSON or has no usable coordinates) for a
  * minute.
+ *
+ * A town that is not cached costs a token of GeocodingRateLimiter before the service is
+ * called. A refused call is not cached: the visitor who went over the limit gets no local
+ * delivery for that address, the next customer of the same town is answered.
  */
 final readonly class Geocoder
 {
@@ -51,6 +55,9 @@ final readonly class Geocoder
     private const NOT_FOUND = 'not_found';
     private const FAILURE = 'failure';
 
+    /** Not a cached status: a call the rate limiter refused is never kept. */
+    private const REFUSED = 'refused';
+
     /** Seconds a request may wait for the first byte, then for the whole answer. */
     private const TIMEOUT_SECONDS = 2.0;
     private const MAX_DURATION_SECONDS = 3.0;
@@ -59,6 +66,7 @@ final readonly class Geocoder
         private HttpClientInterface $httpClient,
         private CacheInterface $cache,
         private LoggerInterface $logger,
+        private GeocodingRateLimiter $rateLimiter,
     ) {
     }
 
@@ -72,7 +80,14 @@ final readonly class Geocoder
         // "v2": the entries of the first version hold no status.
         $cached = $this->cache->get(
             'geolocated_delivery.destination.v2.'.$destination->key(),
-            function (ItemInterface $item) use ($destination): array {
+            function (ItemInterface $item, bool &$save) use ($destination): array {
+                if (!$this->rateLimiter->allowsACall()) {
+                    $this->logger->info('GeolocatedDelivery: too many new towns asked for, the address service is not called.');
+                    $save = false;
+
+                    return ['status' => self::REFUSED];
+                }
+
                 $located = $this->locate([
                     'q' => $destination->city,
                     'postcode' => $destination->zipCode,

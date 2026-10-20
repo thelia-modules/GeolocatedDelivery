@@ -16,6 +16,7 @@ namespace GeolocatedDelivery\Tests\Unit\Service;
 
 use GeolocatedDelivery\Service\Destination;
 use GeolocatedDelivery\Service\Geocoder;
+use GeolocatedDelivery\Service\GeocodingRateLimiter;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -23,6 +24,7 @@ use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpClient\Exception\TransportException;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 final class GeocoderTest extends TestCase
 {
@@ -224,7 +226,7 @@ final class GeocoderTest extends TestCase
             return array_shift($responses) ?? new MockResponse('', ['http_code' => 500]);
         });
 
-        return new Geocoder($client, new ArrayAdapter(clock: $this->clock), new NullLogger());
+        return new Geocoder($client, new ArrayAdapter(clock: $this->clock), new NullLogger(), new GeocodingRateLimiter(new ArrayAdapter(), new RequestStack(), 'test'));
     }
 
     /**

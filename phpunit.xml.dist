@@ -43,4 +43,12 @@
         </testsuite>
     </testsuites>
 
+    <!-- The rate limiter reads the time with microtime(): ClockMock replaces it in these
+         namespaces from the start, so that a test can stop or move the clock. -->
+    <extensions>
+        <bootstrap class="Symfony\Bridge\PhpUnit\SymfonyExtension">
+            <parameter name="clock-mock-namespaces" value="Symfony\Component\RateLimiter,Symfony\Component\RateLimiter\Policy,Symfony\Component\RateLimiter\Storage" />
+        </bootstrap>
+    </extensions>
+
 </phpunit>

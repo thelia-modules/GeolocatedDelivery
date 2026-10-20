@@ -20,10 +20,12 @@ use GeolocatedDelivery\Model\GeolocatedDeliveryRadiusQuery;
 use GeolocatedDelivery\Model\GeolocatedDeliveryStore;
 use GeolocatedDelivery\Model\GeolocatedDeliveryStoreQuery;
 use GeolocatedDelivery\Service\Geocoder;
+use GeolocatedDelivery\Service\GeocodingRateLimiter;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Thelia\Model\Cart;
 use Thelia\Model\Country;
 use Thelia\Model\Module;
@@ -76,6 +78,14 @@ abstract class RadiusTestCase extends IntegrationTestCase
      */
     protected function geocoderAnswers(MockResponse ...$responses): void
     {
+        $this->geocoderLimitedBy(new GeocodingRateLimiter(new ArrayAdapter(), new RequestStack(), 'test'), ...$responses);
+    }
+
+    /**
+     * Same, with the rate limiter given.
+     */
+    protected function geocoderLimitedBy(GeocodingRateLimiter $rateLimiter, MockResponse ...$responses): void
+    {
         $responses = array_values($responses);
         $client = new MockHttpClient(function (string $method, string $url) use (&$responses): MockResponse {
             $this->requestedUrls[] = $url;
@@ -83,7 +93,7 @@ abstract class RadiusTestCase extends IntegrationTestCase
             return array_shift($responses) ?? new MockResponse('', ['http_code' => 500]);
         });
 
-        static::getContainer()->set(Geocoder::class, new Geocoder($client, new ArrayAdapter(), new NullLogger()));
+        static::getContainer()->set(Geocoder::class, new Geocoder($client, new ArrayAdapter(), new NullLogger(), $rateLimiter));
     }
 
     /**
