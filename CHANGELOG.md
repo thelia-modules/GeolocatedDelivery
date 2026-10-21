@@ -4,6 +4,10 @@
   visitor: an IPv4-mapped address (`::ffff:1.2.3.4`, what a dual-stack server gives) and an
   address under the NAT64 well-known prefix (`64:ff9b::/96`) count as their IPv4. Version
   2.0.0 cut them to `::/64` and `64:ff9b::/64`.
+- The other IPv6 forms that carry the IPv4 of the visitor count as that IPv4 too:
+  IPv4-compatible (`::1.2.3.4`), IPv4-translated (`::ffff:0:1.2.3.4`), 6to4 (`2002::/16`)
+  and Teredo (`2001::/32`, the client IPv4 decoded from the last 32 bits; its /64 is the
+  Teredo server, shared by all its clients). `::` and `::1` keep sharing `::/64`.
 - A visitor over his limit is turned away before the shop counter is looked at, so he no
   longer takes the lock every other visitor waits for.
 - The locks of the rate limiter expire after 5 seconds instead of 300: with a store shared
@@ -13,8 +17,13 @@
   counts as exhausted, instead of letting the visitor's token be spent on a refused call.
 - The price of a slice is written to the administration log with a point whatever the
   locale of the server (`4.50`, not `4,50`).
+- Tests: both ways of creating a rate limiter lock are checked for the 5 second lifetime,
+  and a guard fails when `LockFactory` gains a public method `RateLimiterLockFactory` does
+  not override (it never builds the store of its parent).
 - README: the lock store and the cache must be shared between servers, `framework.lock`
-  is required, and `flock` leaves one file per counter in the temporary directory.
+  is required, and `flock` leaves one file per counter in the temporary directory. On a
+  store that expires locks, a counter update longer than 5 seconds lets a second request
+  in, at a cost of at most one token per overlap.
 
 # 2.0.0
 
