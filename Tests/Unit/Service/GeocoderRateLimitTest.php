@@ -142,6 +142,44 @@ final class GeocoderRateLimitTest extends TestCase
         self::assertNotNull($this->geocoder->locateDestination($this->town(12)));
     }
 
+    public function testAnIpv4MappedAddressIsCountedAsItsIpv4(): void
+    {
+        $this->visitorAt('1.2.3.4');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt('::ffff:1.2.3.4');
+
+        self::assertNull($this->geocoder->locateDestination($this->town(11)), 'Same visitor, same limit.');
+    }
+
+    public function testTwoIpv4MappedAddressesAreTwoVisitors(): void
+    {
+        $this->visitorAt('::ffff:1.2.3.4');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT + 1; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt('::ffff:1.2.3.5');
+
+        self::assertNotNull($this->geocoder->locateDestination($this->town(12)));
+    }
+
+    public function testAnIpv4BehindTheNat64PrefixIsCountedAsItsIpv4(): void
+    {
+        $this->visitorAt('64:ff9b::1.2.3.4');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt('1.2.3.4');
+        self::assertNull($this->geocoder->locateDestination($this->town(11)), 'Same visitor, same limit.');
+
+        $this->visitorAt('64:ff9b::1.2.3.5');
+        self::assertNotNull($this->geocoder->locateDestination($this->town(12)), 'Another IPv4 behind the same prefix.');
+    }
+
     public function testATownAlreadyCachedCostsNoToken(): void
     {
         $this->visitorAt('203.0.113.7');

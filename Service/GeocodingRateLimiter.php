@@ -117,6 +117,12 @@ final readonly class GeocodingRateLimiter
 
     /**
      * The hashed IP of the visitor, an IPv6 cut to its /64 prefix. Null without a request.
+     *
+     * An IPv6 address that carries an IPv4 one in its last 32 bits is counted as that IPv4,
+     * whole: the IPv4-mapped addresses (::ffff:0:0/96, RFC 4291 2.5.5.2), which a dual-stack
+     * server hands for every IPv4 client, and the NAT64 well-known prefix (64:ff9b::/96,
+     * RFC 6052 2.1), under which a translator in front of an IPv6-only server (SIIT-DC,
+     * RFC 7755) shows each IPv4 client. Cut to /64, all of them would share one counter.
      */
     private function visitorKey(): ?string
     {
@@ -129,9 +135,19 @@ final readonly class GeocodingRateLimiter
         $packed = @inet_pton($clientIp);
 
         if (\is_string($packed) && 16 === \strlen($packed)) {
-            $clientIp = (string) inet_ntop(substr($packed, 0, 8).str_repeat("\0", 8)).'/64';
+            $clientIp = self::embedsAnIpv4($packed)
+                ? (string) inet_ntop(substr($packed, 12))
+                : (string) inet_ntop(substr($packed, 0, 8).str_repeat("\0", 8)).'/64';
         }
 
         return hash_hmac('sha256', $clientIp, $this->secret);
+    }
+
+    private static function embedsAnIpv4(string $packedIpv6): bool
+    {
+        $prefix = substr($packedIpv6, 0, 12);
+
+        return str_repeat("\0", 10)."\xff\xff" === $prefix
+            || "\x00\x64\xff\x9b".str_repeat("\0", 8) === $prefix;
     }
 }
