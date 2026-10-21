@@ -329,6 +329,20 @@ final class GeocoderRateLimitTest extends TestCase
         }
     }
 
+    public function testAVisitorOverTheLimitNeverLocksTheShopCounter(): void
+    {
+        $this->visitorAt('203.0.113.7');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+        $this->lockedResources->exchangeArray([]);
+
+        self::assertNull($this->geocoder->locateDestination($this->town(11)));
+
+        self::assertNotContains('geolocated_delivery_shop-shop', $this->lockedResources->getArrayCopy());
+        self::assertNotSame([], $this->lockedResources->getArrayCopy(), 'The visitor counter was looked at, under its lock.');
+    }
+
     /**
      * A logger that remembers what it was told.
      */

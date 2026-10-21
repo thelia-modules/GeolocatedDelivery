@@ -92,23 +92,30 @@ final readonly class GeocodingRateLimiter
      * Takes a token of each limit for one call to the address service. Null when the call may
      * go, otherwise the limit that refused it.
      *
-     * The shop limit is looked at first without taking anything, then the visitor's token is
-     * taken, then the shop's: a call the shop refuses costs the visitor nothing, and a call
-     * the visitor's limit refuses costs the shop nothing. Only two requests racing for the
-     * very last token of the shop, between the look and the take, can cost one of them a
-     * visitor token; the limiters offer no way to give a token back.
+     * Both limits are looked at before anything is taken, the visitor's first: a visitor over
+     * his limit is turned away without touching the shop counter, whose lock every visitor
+     * shares. Then the visitor's token is taken, then the shop's. A call the shop refuses
+     * costs the visitor nothing, and a call the visitor's limit refuses costs the shop
+     * nothing. Only two requests racing for the very last token, between the look and the
+     * take, can cost one of them a token of the other limit; the limiters offer no way to
+     * give a token back.
      */
     public function refusalOfACall(): ?string
     {
+        $visitorKey = $this->visitorKey();
+        $visitor = null === $visitorKey ? null : $this->perVisitor->create($visitorKey);
+
+        if (null !== $visitor && $visitor->consume(0)->getRemainingTokens() <= 0) {
+            return self::REFUSED_BY_VISITOR_LIMIT;
+        }
+
         $shop = $this->perShop->create('shop');
 
         if ($shop->consume(0)->getRemainingTokens() <= 0) {
             return self::REFUSED_BY_SHOP_LIMIT;
         }
 
-        $visitorKey = $this->visitorKey();
-
-        if (null !== $visitorKey && !$this->perVisitor->create($visitorKey)->consume()->isAccepted()) {
+        if (null !== $visitor && !$visitor->consume()->isAccepted()) {
             return self::REFUSED_BY_VISITOR_LIMIT;
         }
 
