@@ -51,6 +51,45 @@ Removed:
 - `Config/routing.xml`, `Config/sqldb.map` and `Config/config.xml`, which Thelia 3 no
   longer needs.
 
+Breaking changes, for code that extends, calls or templates against the module:
+
+- Controllers `Controller\ModuleController`, `Controller\RadiusController` and
+  `Controller\StoreController` are removed. `Controller\ConfigurationController` replaces
+  them, with the routes `geolocateddelivery.store.create`, `geolocateddelivery.store.delete`,
+  `geolocateddelivery.radius.create` and `geolocateddelivery.radius.delete` under
+  `/admin/module/GeolocatedDelivery`.
+- Forms `Form\ConfigurationForm`, `Form\RadiusForm` and `Form\StoreForm` are removed. The
+  back-office page posts plain fields checked by the controller; there is no form to extend.
+- Loops `geolocated.delivery.store` (`Loop\GeolocatedDeliveryStoreLoop`) and
+  `geolocated.delivery.radius` (`Loop\GeolocatedDeliveryRadiusLoop`) are removed, with no
+  replacement. A template that used them must read `Model\GeolocatedDeliveryStoreQuery` and
+  `Model\GeolocatedDeliveryRadiusQuery` instead.
+- Listeners `EventListeners\GeolocatedDeliveryListener` (shipping e-mail, delivery options)
+  and `EventListeners\ApiListener` (OpenApi delivery options) are removed.
+  `EventListeners\DeliveryOptionListener` and `EventListeners\PostageListener` replace the
+  options part, on the core events `MODULE_DELIVERY_GET_OPTIONS` and
+  `MODULE_DELIVERY_GET_POSTAGE`. The e-mail has no replacement.
+- `Utils\GeolocManager` is removed (`getGeolocFromAddress()`, `getRadius()`, `getDistance()`,
+  `check()`). `Service\Geocoder`, `Service\DistanceCalculator` and `Service\RadiusQuote`
+  take over the location, the distance and the price.
+- Hooks: `Hook\HookManager::onAccountOrderAfterProducts()` (tracking link on the order page)
+  and `onModuleConfigJs()` (hook `module.config-js`) are removed, with no replacement.
+  `onModuleConfiguration()` now returns `void`.
+- Constants of `GeolocatedDelivery` removed: `CONFIG_PICKING_METHOD`, `CONFIG_TAX_RULE_ID`,
+  `CONFIG_TRACKING_URL`, `DEFAULT_PICKING_METHOD`, `DEFAULT_TRACKING_URL`, `METHOD_MAX_RADIUS`,
+  `METHOD_MIN_RADIUS`, `METHOD_PRICE`, `METHOD_WEIGHT` (the settings they named are gone, see
+  above) and `MESSAGE_DOMAIN`, replaced by `DOMAIN_NAME` (`geolocateddelivery`, not
+  `geolocated_delivery`) and `BACK_OFFICE_DOMAIN`.
+- Methods of `GeolocatedDelivery` removed: `getConfig()`, `getDeliveryMode()`, `trans()` and
+  the `$translator` property. They have no replacement.
+- Types made explicit: `getPostage()` and `isValidDelivery()` take `?State $state = null`,
+  `postActivation()` and `update()` take `?ConnectionInterface $con = null`. These were
+  implicitly nullable before, so callers are not affected. A class that overrides them must
+  declare the nullable type.
+- Return types added: `getPostage(): OrderPostage|float`, `isValidDelivery(): bool`,
+  `handleVirtualProductDelivery(): bool`. A class that extends the module and overrides
+  them must declare a compatible return type.
+
 # 1.0.1
 
 - Fix radius calculation.
