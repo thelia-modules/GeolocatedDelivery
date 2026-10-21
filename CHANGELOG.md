@@ -12,6 +12,9 @@
   the IPv4 in bytes 6, 7, 9 and 10, with byte 8 zero. An address whose byte 8 is not zero,
   and the NAT64 prefixes of a network, keep their /64. Addresses that only look like a
   known form (`2001:db8::/32`, `2001:1::/32`, `::ffff:0:0:0:1`) keep their /64 too.
+- The local-use prefix cut to a /96, `64:ff9b:1::a.b.c.d` (bytes 6 to 11 zero), is read as
+  that IPv4, as under the well-known prefix; read as a /48, every client behind it got
+  `0.0.0.0` and shared one limit.
 - A visitor over his limit is turned away before the shop counter is looked at, so he no
   longer takes the lock every other visitor waits for.
 - The locks of the rate limiter expire after 5 seconds instead of 300: with a store shared

@@ -167,6 +167,12 @@ final readonly class GeocodingRateLimiter
      *   local prefix into longer ones (a /64, a /96): read as a /48, their clients share a key
      *   at worst as much as their /64 would make them. Network-specific prefixes cannot be
      *   recognised and keep their /64.
+     *   One cut is read exactly: the /96 64:ff9b:1::a.b.c.d, bytes 6 to 11 zero and the IPv4 in
+     *   the last four bytes, as under the well-known prefix. Read as a /48 it would give every
+     *   client 0.0.0.0. The only /48 address it could be mistaken for carries 0.0.0.0, the
+     *   "this host" address only a host still learning its own address may send (RFC 1122
+     *   3.2.1.3); its suffix, bytes 11 to 15, SHOULD be zero (RFC 6052 2.2), and then both
+     *   readings give 0.0.0.0.
      * - 6to4, 2002:AABB:CCDD::/48 (RFC 3056 2): the IPv4 of the site in bytes 2 to 5.
      * - Teredo, 2001:0:SSSS:SSSS:FFFF:PPPP:CCCC:CCCC (RFC 4380 4): bytes 4 to 7 hold the IPv4
      *   of the Teredo server and bytes 12 to 15 the public IPv4 of the client, every bit
@@ -181,7 +187,8 @@ final readonly class GeocodingRateLimiter
         return match (true) {
             str_repeat("\0", 10)."\xff\xff" === $first12,
             str_repeat("\0", 8)."\xff\xff\0\0" === $first12,
-            "\x00\x64\xff\x9b".str_repeat("\0", 8) === $first12 => $last4,
+            "\x00\x64\xff\x9b".str_repeat("\0", 8) === $first12,
+            "\x00\x64\xff\x9b\x00\x01".str_repeat("\0", 6) === $first12 => $last4,
             str_starts_with($packedIpv6, "\x00\x64\xff\x9b\x00\x01") && "\0" === $packedIpv6[8] => substr($packedIpv6, 6, 2).substr($packedIpv6, 9, 2),
             str_repeat("\0", 12) === $first12 => \in_array($last4, ["\0\0\0\0", "\0\0\0\x01"], true) ? null : $last4,
             str_starts_with($packedIpv6, "\x20\x02") => substr($packedIpv6, 2, 4),
