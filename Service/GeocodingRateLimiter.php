@@ -102,7 +102,7 @@ final readonly class GeocodingRateLimiter
     {
         $shop = $this->perShop->create('shop');
 
-        if (0 === $shop->consume(0)->getRemainingTokens()) {
+        if ($shop->consume(0)->getRemainingTokens() <= 0) {
             return self::REFUSED_BY_SHOP_LIMIT;
         }
 

@@ -29,6 +29,8 @@ use Symfony\Component\Lock\Key;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\PersistingStoreInterface;
 use Symfony\Component\Lock\Store\InMemoryStore;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\CacheStorage;
 
 /**
  * The calls a visitor can make the shop send to the address service. The rate limiter
@@ -41,6 +43,9 @@ final class GeocoderRateLimitTest extends TestCase
     private int $requestCount = 0;
     private Geocoder $geocoder;
 
+    /** Where the rate limiter keeps its counters. */
+    private ArrayAdapter $counters;
+
     /** @var \ArrayObject<int, array{level: string, message: string, context: array<mixed>}> */
     private \ArrayObject $logRecords;
 
@@ -52,6 +57,7 @@ final class GeocoderRateLimitTest extends TestCase
         ClockMock::withClockMock(true);
         $this->logRecords = new \ArrayObject();
         $this->lockedResources = new \ArrayObject();
+        $this->counters = new ArrayAdapter();
         $this->requestStack = new RequestStack();
 
         $client = new MockHttpClient(function (string $method, string $url): MockResponse {
@@ -68,7 +74,7 @@ final class GeocoderRateLimitTest extends TestCase
             $client,
             new ArrayAdapter(),
             $this->recordingLogger(),
-            new GeocodingRateLimiter(new ArrayAdapter(), $this->requestStack, 'test-secret', new LockFactory($this->recordingLockStore())),
+            new GeocodingRateLimiter($this->counters, $this->requestStack, 'test-secret', new LockFactory($this->recordingLockStore())),
         );
     }
 
@@ -258,6 +264,27 @@ final class GeocoderRateLimitTest extends TestCase
 
         $this->visitorAt('192.0.2.1');
         self::assertNull($this->geocoder->locateDestination($this->town(200)));
+    }
+
+    public function testAShopCounterAboveALoweredLimitCostsTheVisitorNoToken(): void
+    {
+        // A counter written when the shop limit was higher: more hits than the limit allows now.
+        $formerLimit = new RateLimiterFactory(
+            ['id' => 'geolocated_delivery_shop', 'policy' => 'sliding_window', 'limit' => 2 * GeocodingRateLimiter::SHOP_LIMIT, 'interval' => GeocodingRateLimiter::SHOP_INTERVAL],
+            new CacheStorage($this->counters),
+        );
+        $formerLimit->create('shop')->consume(GeocodingRateLimiter::SHOP_LIMIT + 5);
+
+        $this->visitorAt('203.0.113.7');
+        for ($attempt = 1; $attempt <= 3; ++$attempt) {
+            self::assertNull($this->geocoder->locateDestination($this->town($attempt)));
+        }
+
+        ClockMock::sleep(2);
+
+        for ($town = 11; $town < 11 + GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            self::assertNotNull($this->geocoder->locateDestination($this->town($town)), 'The visitor still has all the tokens of the minute.');
+        }
     }
 
     public function testWithoutARequestOnlyTheShopLimitCounts(): void
