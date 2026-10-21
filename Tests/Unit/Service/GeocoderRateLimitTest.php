@@ -52,11 +52,15 @@ final class GeocoderRateLimitTest extends TestCase
     /** @var \ArrayObject<int, string> the resources locked, in order */
     private \ArrayObject $lockedResources;
 
+    /** @var \ArrayObject<int, float> the lifetimes the locks were given, in order */
+    private \ArrayObject $lockLifetimes;
+
     protected function setUp(): void
     {
         ClockMock::withClockMock(true);
         $this->logRecords = new \ArrayObject();
         $this->lockedResources = new \ArrayObject();
+        $this->lockLifetimes = new \ArrayObject();
         $this->counters = new ArrayAdapter();
         $this->requestStack = new RequestStack();
 
@@ -329,6 +333,18 @@ final class GeocoderRateLimitTest extends TestCase
         }
     }
 
+    public function testTheLocksOfTheCountersLiveFiveSeconds(): void
+    {
+        $this->visitorAt('203.0.113.7');
+
+        $this->geocoder->locateDestination($this->town(1));
+
+        self::assertNotSame([], $this->lockLifetimes->getArrayCopy());
+        foreach ($this->lockLifetimes as $lifetime) {
+            self::assertSame(5.0, $lifetime, 'Not the 300 seconds of LockFactory: a lock left by a dead process holds the checkout that long.');
+        }
+    }
+
     public function testAVisitorOverTheLimitNeverLocksTheShopCounter(): void
     {
         $this->visitorAt('203.0.113.7');
@@ -368,13 +384,14 @@ final class GeocoderRateLimitTest extends TestCase
      */
     private function recordingLockStore(): PersistingStoreInterface
     {
-        return new class($this->lockedResources) implements PersistingStoreInterface {
+        return new class($this->lockedResources, $this->lockLifetimes) implements PersistingStoreInterface {
             private InMemoryStore $store;
 
             /**
              * @param \ArrayObject<int, string> $lockedResources
+             * @param \ArrayObject<int, float>  $lockLifetimes
              */
-            public function __construct(private readonly \ArrayObject $lockedResources)
+            public function __construct(private readonly \ArrayObject $lockedResources, private readonly \ArrayObject $lockLifetimes)
             {
                 $this->store = new InMemoryStore();
             }
@@ -397,6 +414,7 @@ final class GeocoderRateLimitTest extends TestCase
 
             public function putOffExpiration(Key $key, float $ttl): void
             {
+                $this->lockLifetimes->append($ttl);
                 $this->store->putOffExpiration($key, $ttl);
             }
         };

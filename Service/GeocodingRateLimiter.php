@@ -40,7 +40,8 @@ use Symfony\Component\RateLimiter\Storage\CacheStorage;
  * the located towns, and each one is read and written under a lock of the shop's lock
  * factory (framework.lock, the store LOCK_DSN names, which the core already uses for the
  * checkout): without it, requests in parallel would all read the same count and pass
- * together.
+ * together. Those locks live five seconds, not the five minutes of LockFactory (see
+ * RateLimiterLockFactory).
  *
  * An IPv6 visitor is counted by the /64 prefix of the address: a single connection usually
  * receives a whole /64, and would otherwise get a fresh limit with every address of it.
@@ -72,20 +73,21 @@ final readonly class GeocodingRateLimiter
         LockFactory $lockFactory,
     ) {
         $storage = new CacheStorage($cache);
+        $shortLivedLocks = new RateLimiterLockFactory($lockFactory);
 
         $this->perVisitor = new RateLimiterFactory([
             'id' => 'geolocated_delivery_visitor',
             'policy' => 'sliding_window',
             'limit' => self::VISITOR_LIMIT,
             'interval' => self::VISITOR_INTERVAL,
-        ], $storage, $lockFactory);
+        ], $storage, $shortLivedLocks);
 
         $this->perShop = new RateLimiterFactory([
             'id' => 'geolocated_delivery_shop',
             'policy' => 'sliding_window',
             'limit' => self::SHOP_LIMIT,
             'interval' => self::SHOP_INTERVAL,
-        ], $storage, $lockFactory);
+        ], $storage, $shortLivedLocks);
     }
 
     /**
