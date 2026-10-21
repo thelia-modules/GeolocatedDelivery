@@ -98,9 +98,11 @@ in the cache costs nothing, and locating a store from the back office is not lim
   of an IPv6-only server uses, 6to4 (`2002::/16`, the IPv4 of the site after the prefix)
   and Teredo (`2001::/32`, whose /64 is the Teredo server: the IPv4 of the client is decoded
   from the last 32 bits instead). The unspecified address `::` and the loopback `::1` are
-  not IPv4 addresses: they keep their /64, `::/64`, and share it. Other NAT64 prefixes
-  (`64:ff9b:1::/48`, a prefix of the network) are counted by their /64, which holds part of
-  the IPv4 or none of it: many IPv4 clients behind them may share one limit.
+  not IPv4 addresses: they keep their /64, `::/64`, and share it. The NAT64 local-use prefix
+  `64:ff9b:1::/48` is read as a /48 of RFC 6052 (the IPv4 in bytes 6, 7, 9 and 10, byte 8
+  zero); an address whose byte 8 is not zero keeps its /64. A NAT64 prefix of the network
+  itself cannot be recognised: it is counted by its /64, which holds part of the IPv4 or
+  none of it, and many IPv4 clients behind it may share one limit.
 - For the whole shop: `GeocodingRateLimiter::SHOP_LIMIT` calls (40) per
   `GeocodingRateLimiter::SHOP_INTERVAL` (1 second). The address service allows 50 calls
   per second and per IP, and its documentation advises a cap at 40 or 45
@@ -162,6 +164,10 @@ Known limits, not handled by the module:
 
 - there is no cap per cart: a visitor who changes IP (a mobile network, a pool of proxies)
   gets a new per-visitor allowance each time, up to the shop limit;
+- the visitor is whatever `Request::getClientIp()` returns: with a `trusted_proxies` wider
+  than the real proxies, a forged `X-Forwarded-For` header picks that IP, so a visitor can
+  use up the limit of any other IP, whatever the form of the address (IPv4, IPv6, or an
+  IPv6 form carrying an IPv4);
 - there is no circuit breaker: during an outage, each new town still waits for the timeout
   once a minute (the failure is cached for a minute), within the rate limits.
 

@@ -8,6 +8,10 @@
   IPv4-compatible (`::1.2.3.4`), IPv4-translated (`::ffff:0:1.2.3.4`), 6to4 (`2002::/16`)
   and Teredo (`2001::/32`, the client IPv4 decoded from the last 32 bits; its /64 is the
   Teredo server, shared by all its clients). `::` and `::1` keep sharing `::/64`.
+- The NAT64 local-use prefix `64:ff9b:1::/48` (RFC 8215) is read as a /48 of RFC 6052:
+  the IPv4 in bytes 6, 7, 9 and 10, with byte 8 zero. An address whose byte 8 is not zero,
+  and the NAT64 prefixes of a network, keep their /64. Addresses that only look like a
+  known form (`2001:db8::/32`, `2001:1::/32`, `::ffff:0:0:0:1`) keep their /64 too.
 - A visitor over his limit is turned away before the shop counter is looked at, so he no
   longer takes the lock every other visitor waits for.
 - The locks of the rate limiter expire after 5 seconds instead of 300: with a store shared
@@ -23,7 +27,9 @@
 - README: the lock store and the cache must be shared between servers, `framework.lock`
   is required, and `flock` leaves one file per counter in the temporary directory. On a
   store that expires locks, a counter update longer than 5 seconds lets a second request
-  in, at a cost of at most one token per overlap.
+  in, at a cost of at most one token per overlap. The visitor key follows
+  `Request::getClientIp()`: with a `trusted_proxies` too wide, a forged `X-Forwarded-For`
+  uses up the limit of any IP.
 
 # 2.0.0
 
