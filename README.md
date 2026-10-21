@@ -91,12 +91,16 @@ in the cache costs nothing, and locating a store from the back office is not lim
   `GeocodingRateLimiter::VISITOR_INTERVAL` (1 minute). The visitor is the client IP of the
   request, hashed with the kernel secret: no IP is stored in the cache in clear. An IPv6
   visitor is counted by the /64 prefix of the address, since one connection usually gets a
-  whole /64; an IPv4 address counts whole. An IPv6 address that carries an IPv4 one counts
-  as that IPv4: the IPv4-mapped form (`::ffff:1.2.3.4`) a dual-stack server gives its IPv4
-  clients, and the NAT64 well-known prefix (`64:ff9b::/96`) a translator in front of an
-  IPv6-only server uses. Other NAT64 prefixes (`64:ff9b:1::/48`, a prefix of the network)
-  are counted by their /64, which holds part of the IPv4 or none of it: many IPv4 clients
-  behind them may share one limit.
+  whole /64; an IPv4 address counts whole. An IPv6 address that carries the IPv4 of the
+  visitor counts as that IPv4: the IPv4-mapped form (`::ffff:1.2.3.4`) a dual-stack server
+  gives its IPv4 clients, the IPv4-translated (`::ffff:0:1.2.3.4`) and IPv4-compatible
+  (`::1.2.3.4`) forms, the NAT64 well-known prefix (`64:ff9b::/96`) a translator in front
+  of an IPv6-only server uses, 6to4 (`2002::/16`, the IPv4 of the site after the prefix)
+  and Teredo (`2001::/32`, whose /64 is the Teredo server: the IPv4 of the client is decoded
+  from the last 32 bits instead). The unspecified address `::` and the loopback `::1` are
+  not IPv4 addresses: they keep their /64, `::/64`, and share it. Other NAT64 prefixes
+  (`64:ff9b:1::/48`, a prefix of the network) are counted by their /64, which holds part of
+  the IPv4 or none of it: many IPv4 clients behind them may share one limit.
 - For the whole shop: `GeocodingRateLimiter::SHOP_LIMIT` calls (40) per
   `GeocodingRateLimiter::SHOP_INTERVAL` (1 second). The address service allows 50 calls
   per second and per IP, and its documentation advises a cap at 40 or 45
@@ -120,7 +124,10 @@ under a lock of the shop's lock factory (`framework.lock`, the store `LOCK_DSN` 
 so that requests in parallel cannot all take the last token. Those locks expire after
 `RateLimiterLockFactory::LOCK_LIFETIME_SECONDS` (5 seconds) instead of the 300 seconds of
 Symfony's default: with a shared store, a lock left by a process that died would otherwise
-hold the checkout of every visitor for five minutes.
+hold the checkout of every visitor for five minutes. The other side of it: on a store that
+expires locks, a read and write of a counter that takes longer than 5 seconds lets a second
+request in before it ends, which costs at most one token per overlap; with `flock`, whose
+locks do not expire, this cannot happen.
 
 Both limits are looked at before any token is taken, the visitor's first: a visitor over his
 limit is turned away without touching the shop counter, whose lock all visitors share. A
