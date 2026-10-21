@@ -218,6 +218,33 @@ final class GeocoderRateLimitTest extends TestCase
         self::assertNotNull($this->geocoder->locateDestination($this->town(12)), 'Another IPv4, another limit.');
     }
 
+    /**
+     * Two addresses of one /64 that only look like a form carrying an IPv4: read as one, they
+     * would be two visitors.
+     *
+     * @return iterable<string, array{0: string, 1: string}>
+     */
+    public static function addressesThatOnlyLookLikeAFormCarryingAnIpv4(): iterable
+    {
+        yield 'documentation prefix 2001:db8::/32, not Teredo' => ['2001:db8::1', '2001:db8::2'];
+        yield '2001:1::/32, not Teredo (2001:0::/32)' => ['2001:1::1', '2001:1::2'];
+        yield 'ffff in the fourth group, not IPv4-translated' => ['::ffff:0:0:0:1', '::ffff:0:0:0:2'];
+        yield '64:ff9b:1::, not the well-known NAT64 /96' => ['64:ff9b:1::1', '64:ff9b:1::2'];
+    }
+
+    #[DataProvider('addressesThatOnlyLookLikeAFormCarryingAnIpv4')]
+    public function testAnAddressThatOnlyLooksLikeAFormCarryingAnIpv4SharesTheLimitOfItsSlash64(string $first, string $second): void
+    {
+        $this->visitorAt($first);
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt($second);
+
+        self::assertNull($this->geocoder->locateDestination($this->town(11)), 'Same /64, same limit.');
+    }
+
     public function testTheUnspecifiedAndLoopbackAddressesShareTheirSlash64AndNoIpv4(): void
     {
         $this->visitorAt('::1');
