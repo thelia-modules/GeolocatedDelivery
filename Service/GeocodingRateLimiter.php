@@ -127,11 +127,8 @@ final readonly class GeocodingRateLimiter
     /**
      * The hashed IP of the visitor, an IPv6 cut to its /64 prefix. Null without a request.
      *
-     * An IPv6 address that carries an IPv4 one in its last 32 bits is counted as that IPv4,
-     * whole: the IPv4-mapped addresses (::ffff:0:0/96, RFC 4291 2.5.5.2), which a dual-stack
-     * server hands for every IPv4 client, and the NAT64 well-known prefix (64:ff9b::/96,
-     * RFC 6052 2.1), under which a translator in front of an IPv6-only server (SIIT-DC,
-     * RFC 7755) shows each IPv4 client. Cut to /64, all of them would share one counter.
+     * An IPv6 address that carries the IPv4 of the visitor is counted as that IPv4, whole (see
+     * embeddedIpv4()): cut to /64, all the visitors behind one prefix would share a counter.
      */
     private function visitorKey(): ?string
     {
@@ -144,19 +141,45 @@ final readonly class GeocodingRateLimiter
         $packed = @inet_pton($clientIp);
 
         if (\is_string($packed) && 16 === \strlen($packed)) {
-            $clientIp = self::embedsAnIpv4($packed)
-                ? (string) inet_ntop(substr($packed, 12))
+            $ipv4 = self::embeddedIpv4($packed);
+            $clientIp = null !== $ipv4
+                ? (string) inet_ntop($ipv4)
                 : (string) inet_ntop(substr($packed, 0, 8).str_repeat("\0", 8)).'/64';
         }
 
         return hash_hmac('sha256', $clientIp, $this->secret);
     }
 
-    private static function embedsAnIpv4(string $packedIpv6): bool
+    /**
+     * The IPv4 (packed) an IPv6 address stands for, or null.
+     *
+     * - IPv4-mapped, ::ffff:a.b.c.d (RFC 4291 2.5.5.2): what a dual-stack server hands for an
+     *   IPv4 client.
+     * - IPv4-translated, ::ffff:0:a.b.c.d (RFC 2765 2.1).
+     * - IPv4-compatible, ::a.b.c.d (RFC 4291 2.5.5.1, deprecated). The unspecified address ::
+     *   and the loopback ::1 are not IPv4 ones: they keep the /64 of every other address,
+     *   ::/64, and share it.
+     * - NAT64 well-known prefix, 64:ff9b::a.b.c.d (RFC 6052 2.1), under which a translator in
+     *   front of an IPv6-only server (SIIT-DC, RFC 7755) shows each IPv4 client.
+     * - 6to4, 2002:AABB:CCDD::/48 (RFC 3056 2): the IPv4 of the site in bytes 2 to 5.
+     * - Teredo, 2001:0:SSSS:SSSS:FFFF:PPPP:CCCC:CCCC (RFC 4380 4): bytes 4 to 7 hold the IPv4
+     *   of the Teredo server and bytes 12 to 15 the public IPv4 of the client, every bit
+     *   inverted. The /64 is the server: every client of one server would share a counter, so
+     *   the client's IPv4 is decoded instead.
+     */
+    private static function embeddedIpv4(string $packedIpv6): ?string
     {
-        $prefix = substr($packedIpv6, 0, 12);
+        $first12 = substr($packedIpv6, 0, 12);
+        $last4 = substr($packedIpv6, 12);
 
-        return str_repeat("\0", 10)."\xff\xff" === $prefix
-            || "\x00\x64\xff\x9b".str_repeat("\0", 8) === $prefix;
+        return match (true) {
+            str_repeat("\0", 10)."\xff\xff" === $first12,
+            str_repeat("\0", 8)."\xff\xff\0\0" === $first12,
+            "\x00\x64\xff\x9b".str_repeat("\0", 8) === $first12 => $last4,
+            str_repeat("\0", 12) === $first12 => \in_array($last4, ["\0\0\0\0", "\0\0\0\x01"], true) ? null : $last4,
+            str_starts_with($packedIpv6, "\x20\x02") => substr($packedIpv6, 2, 4),
+            str_starts_with($packedIpv6, "\x20\x01\x00\x00") => ~$last4,
+            default => null,
+        };
     }
 }

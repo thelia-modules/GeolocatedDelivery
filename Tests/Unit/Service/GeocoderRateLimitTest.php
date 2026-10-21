@@ -17,6 +17,7 @@ namespace GeolocatedDelivery\Tests\Unit\Service;
 use GeolocatedDelivery\Service\Destination;
 use GeolocatedDelivery\Service\Geocoder;
 use GeolocatedDelivery\Service\GeocodingRateLimiter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Symfony\Bridge\PhpUnit\ClockMock;
@@ -188,6 +189,47 @@ final class GeocoderRateLimitTest extends TestCase
 
         $this->visitorAt('64:ff9b::1.2.3.5');
         self::assertNotNull($this->geocoder->locateDestination($this->town(12)), 'Another IPv4 behind the same prefix.');
+    }
+
+    /**
+     * @return iterable<string, array{0: string, 1: string}> the form of 1.2.3.4, the same form of 1.2.3.5
+     */
+    public static function ipv6FormsCarryingAnIpv4(): iterable
+    {
+        yield 'IPv4-compatible' => ['::1.2.3.4', '::1.2.3.5'];
+        yield 'IPv4-translated' => ['::ffff:0:1.2.3.4', '::ffff:0:1.2.3.5'];
+        yield '6to4' => ['2002:102:304::1', '2002:102:305::1'];
+        // Same Teredo server (65.54.227.120), clients 1.2.3.4 and 1.2.3.5, bits inverted.
+        yield 'Teredo' => ['2001:0:4136:e378:8000:63bf:fefd:fcfb', '2001:0:4136:e378:8000:63bf:fefd:fcfa'];
+    }
+
+    #[DataProvider('ipv6FormsCarryingAnIpv4')]
+    public function testAnIpv6FormCarryingAnIpv4IsCountedAsThatIpv4(string $formOfTheFirst, string $formOfTheSecond): void
+    {
+        $this->visitorAt('1.2.3.4');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt($formOfTheFirst);
+        self::assertNull($this->geocoder->locateDestination($this->town(11)), 'Same IPv4, same limit.');
+
+        $this->visitorAt($formOfTheSecond);
+        self::assertNotNull($this->geocoder->locateDestination($this->town(12)), 'Another IPv4, another limit.');
+    }
+
+    public function testTheUnspecifiedAndLoopbackAddressesShareTheirSlash64AndNoIpv4(): void
+    {
+        $this->visitorAt('::1');
+        for ($town = 1; $town <= GeocodingRateLimiter::VISITOR_LIMIT; ++$town) {
+            $this->geocoder->locateDestination($this->town($town));
+        }
+
+        $this->visitorAt('::');
+        self::assertNull($this->geocoder->locateDestination($this->town(11)), ':: and ::1 are both counted as ::/64.');
+
+        $this->visitorAt('0.0.0.1');
+        self::assertNotNull($this->geocoder->locateDestination($this->town(12)), '::1 is not the IPv4 0.0.0.1.');
     }
 
     public function testATownAlreadyCachedCostsNoToken(): void
