@@ -1,27 +1,17 @@
 <?php
 
-return array(
-    'Area' => 'Area',
-    'Custom delivery shipping message' => 'Custom delivery shipping message',
-    'Id' => 'Id',
-    'Method' => 'Method',
-    'Price' => 'Price',
-    'Price and weight' => 'Price and weight',
-    'Tax rule' => 'Tax rule',
-    'The Tax Rule id \'%id\' doesn\'t exist' => 'The Tax Rule id \'%id\' doesn\'t exist',
-    'The area is not valid' => 'The area is not valid',
-    'The method used to select the right slice.' => 'The method used to select the right slice.',
-    'The price max value is not valid' => 'The price max value is not valid',
-    'The price value is not valid' => 'The price value is not valid',
-    'The slice has not been deleted' => 'The slice has not been deleted',
-    'The tax rule used to calculate postage taxes.' => 'The tax rule used to calculate postage taxes.',
-    'The tracking URL. %ID% will be replaced by the tracking number entered in the order' => 'The tracking URL. %ID% will be replaced by the tracking number entered in the order',
-    'The weight max value is not valid' => 'The weight max value is not valid',
-    'Tracking URL' => 'Tracking URL',
-    'Weight' => 'Weight',
-    'Your order {$order_ref} has been shipped' => 'Your order {$order_ref} has been shipped',
-    'Your slice has been saved' => 'Your slice has been saved',
-    'minRadius'=>'Minimum radius',
-    'maxRadius'=>'Maximum radius',
-    'RadiusPrice'=>'Radius price'
-);
+return [
+    'Fill in the name, the street, the postal code and the city of the store.' => 'Fill in the name, the street, the postal code and the city of the store.',
+    'The address of the store could not be located: check it, or try again later. The store was not added.' => 'The address of the store could not be located: check it, or try again later. The store was not added.',
+    'The distances are whole numbers of kilometres, zero or more.' => 'The distances are whole numbers of kilometres, zero or more.',
+    'The maximum distance must be greater than the minimum distance.' => 'The maximum distance must be greater than the minimum distance.',
+    'The price cannot be above 100000.' => 'The price cannot be above 100000.',
+    'The price cannot be negative.' => 'The price cannot be negative.',
+    'The price must be a number.' => 'The price must be a number.',
+    'The radius slice does not exist anymore.' => 'The radius slice does not exist anymore.',
+    'The radius slice was added.' => 'The radius slice was added.',
+    'The radius slice was deleted.' => 'The radius slice was deleted.',
+    'The store does not exist anymore.' => 'The store does not exist anymore.',
+    'The store was added.' => 'The store was added.',
+    'The store was deleted.' => 'The store was deleted.',
+];

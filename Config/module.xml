@@ -4,24 +4,26 @@
         xsi:schemaLocation="http://thelia.net/schema/dic/module http://thelia.net/schema/dic/module/module-2_2.xsd">
     <fullnamespace>GeolocatedDelivery\GeolocatedDelivery</fullnamespace>
     <descriptive locale="en_US">
-        <title>Geolocated Delivery</title>
+        <title>Local delivery</title>
+        <description>Delivers around your stores, at a price set by the distance between the delivery address and the nearest store.</description>
     </descriptive>
     <descriptive locale="fr_FR">
-        <title>Livraison Geolocalisé</title>
+        <title>Livraison locale</title>
+        <description>Livre autour de vos boutiques, à un prix fixé par la distance entre l'adresse de livraison et la boutique la plus proche.</description>
     </descriptive>
     <languages>
         <language>en_US</language>
         <language>fr_FR</language>
     </languages>
-    <version>1.0.1</version>
+    <version>2.0.0</version>
     <authors>
         <author>
             <name>thomas da silva mendonca</name>
             <email>tdasilva@openstudio.fr</email>
         </author>
     </authors>
-    <type>classic</type>
-    <thelia>2.5.0</thelia>
+    <type>delivery</type>
+    <thelia>3.0.0</thelia>
     <stability>prod</stability>
     <mandatory>0</mandatory>
     <hidden>0</hidden>

@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'Actions' => 'Actions',
+    'Add the slice' => 'Add the slice',
+    'Add the store' => 'Add the store',
+    'Address' => 'Address',
+    'City' => 'City',
+    'Delete this slice' => 'Delete this slice',
+    'Delete this store' => 'Delete this store',
+    'From (km)' => 'From (km)',
+    'Manage the shipping zones of the module' => 'Manage the shipping zones of the module',
+    'Name' => 'Name',
+    'Not located: this store is ignored. Delete it and add it again.' => 'Not located: this store is ignored. Delete it and add it again.',
+    'Postal code' => 'Postal code',
+    'Price (%symbol)' => 'Price (%symbol)',
+    'Radius slices' => 'Radius slices',
+    'Stores' => 'Stores',
+    'Street' => 'Street',
+    'The distance is measured from the delivery address to the nearest store, as the crow flies. A store is located from its full address when it is saved.' => 'The distance is measured from the delivery address to the nearest store, as the crow flies. A store is located from its full address when it is saved.',
+    'The first slice containing the distance gives the price, bounds included. Beyond the last slice, the local delivery is not offered. The price is before tax when a postage tax rule applies to the module.' => 'The first slice containing the distance gives the price, bounds included. Beyond the last slice, the local delivery is not offered. The price is before tax when a postage tax rule applies to the module.',
+    'The local delivery is offered in no shipping zone yet: attach the module to the zones it serves, the checkout never offers it elsewhere.' => 'The local delivery is offered in no shipping zone yet: attach the module to the zones it serves, the checkout never offers it elsewhere.',
+    'There is no radius slice: the local delivery is offered to no address.' => 'There is no radius slice: the local delivery is offered to no address.',
+    'There is no store: the local delivery is offered to no address.' => 'There is no store: the local delivery is offered to no address.',
+    'To (km)' => 'To (km)',
+];

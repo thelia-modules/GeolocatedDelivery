@@ -1,0 +1,148 @@
+{% set domain = 'geolocateddelivery.bo.default-twig' %}
+{% set can_update = is_granted('UPDATE', {resource: 'admin.module', module: 'GeolocatedDelivery'}) %}
+
+{% if not has_zone %}
+	<div class="alert alert-warning" data-testid="geolocateddelivery-no-zone">
+		{{ 'The local delivery is offered in no shipping zone yet: attach the module to the zones it serves, the checkout never offers it elsewhere.'|trans({}, domain) }}
+		<a href="{{ path('admin.configuration.shipping-zones.update.view', {delivery_module_id: module_id}) }}">{{ 'Manage the shipping zones of the module'|trans({}, domain) }}</a>
+	</div>
+{% endif %}
+
+<div class="mb-3 card" data-testid="geolocateddelivery-stores">
+	<div class="card-header">
+		<h3 class="mb-0 card-title">{{ 'Stores'|trans({}, domain) }}</h3>
+	</div>
+	<div class="card-body">
+		<p class="text-muted">{{ 'The distance is measured from the delivery address to the nearest store, as the crow flies. A store is located from its full address when it is saved.'|trans({}, domain) }}</p>
+
+		{% if stores is not empty %}
+			<div class="table-responsive">
+				<table class="table table-striped align-middle" data-testid="geolocateddelivery-store-list">
+					<thead>
+						<tr>
+							<th>{{ 'Name'|trans({}, domain) }}</th>
+							<th>{{ 'Address'|trans({}, domain) }}</th>
+							<th class="text-end">{{ 'Actions'|trans({}, domain) }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for store in stores %}
+							<tr data-testid="geolocateddelivery-store-{{ store.id }}">
+								<td>{{ store.name }}</td>
+								<td>
+									{{ store.street }}, {{ store.zip_code }} {{ store.city }}
+									{% if not store.located %}
+										<div class="small text-danger" data-testid="geolocateddelivery-store-unlocated">{{ 'Not located: this store is ignored. Delete it and add it again.'|trans({}, domain) }}</div>
+									{% endif %}
+								</td>
+								<td class="text-end">
+									{% if can_update %}
+										<form method="post" class="d-inline" action="{{ path('geolocateddelivery.store.delete', {id: store.id}) }}">
+											<input type="hidden" name="_token" value="{{ assignToken() }}">
+											<button type="submit" class="btn btn-danger btn-sm" title="{{ 'Delete this store'|trans({}, domain) }}">
+												<i class="bi bi-trash"></i>
+											</button>
+										</form>
+									{% endif %}
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		{% else %}
+			<div class="alert alert-info" data-testid="geolocateddelivery-no-store">{{ 'There is no store: the local delivery is offered to no address.'|trans({}, domain) }}</div>
+		{% endif %}
+
+		{% if can_update %}
+			<form method="post" action="{{ path('geolocateddelivery.store.create') }}" class="row g-3" data-testid="geolocateddelivery-store-form">
+				<input type="hidden" name="_token" value="{{ assignToken() }}">
+				<div class="col-md-3">
+					<label class="form-label" for="geolocateddelivery-store-name">{{ 'Name'|trans({}, domain) }}</label>
+					<input class="form-control" id="geolocateddelivery-store-name" name="name" maxlength="255" required>
+				</div>
+				<div class="col-md-4">
+					<label class="form-label" for="geolocateddelivery-store-street">{{ 'Street'|trans({}, domain) }}</label>
+					<input class="form-control" id="geolocateddelivery-store-street" name="street" maxlength="255" required>
+				</div>
+				<div class="col-md-2">
+					<label class="form-label" for="geolocateddelivery-store-zip-code">{{ 'Postal code'|trans({}, domain) }}</label>
+					<input class="form-control" id="geolocateddelivery-store-zip-code" name="zip_code" maxlength="255" required>
+				</div>
+				<div class="col-md-3">
+					<label class="form-label" for="geolocateddelivery-store-city">{{ 'City'|trans({}, domain) }}</label>
+					<input class="form-control" id="geolocateddelivery-store-city" name="city" maxlength="255" required>
+				</div>
+				<div class="col-12">
+					<button type="submit" class="btn btn-primary btn-sm">{{ 'Add the store'|trans({}, domain) }}</button>
+				</div>
+			</form>
+		{% endif %}
+	</div>
+</div>
+
+<div class="mb-3 card" data-testid="geolocateddelivery-slices">
+	<div class="card-header">
+		<h3 class="mb-0 card-title">{{ 'Radius slices'|trans({}, domain) }}</h3>
+	</div>
+	<div class="card-body">
+		<p class="text-muted">{{ 'The first slice containing the distance gives the price, bounds included. Beyond the last slice, the local delivery is not offered. The price is before tax when a postage tax rule applies to the module.'|trans({}, domain) }}</p>
+
+		{% if slices is not empty %}
+			<div class="table-responsive">
+				<table class="table table-striped align-middle" data-testid="geolocateddelivery-slice-list">
+					<thead>
+						<tr>
+							<th>{{ 'From (km)'|trans({}, domain) }}</th>
+							<th>{{ 'To (km)'|trans({}, domain) }}</th>
+							<th>{{ 'Price (%symbol)'|trans({'%symbol': currency_symbol}, domain) }}</th>
+							<th class="text-end">{{ 'Actions'|trans({}, domain) }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for slice in slices %}
+							<tr data-testid="geolocateddelivery-slice-{{ slice.id }}">
+								<td>{{ slice.min_radius }}</td>
+								<td>{{ slice.max_radius }}</td>
+								<td>{{ slice.price|number_format(2, '.', ' ') }}</td>
+								<td class="text-end">
+									{% if can_update %}
+										<form method="post" class="d-inline" action="{{ path('geolocateddelivery.radius.delete', {id: slice.id}) }}">
+											<input type="hidden" name="_token" value="{{ assignToken() }}">
+											<button type="submit" class="btn btn-danger btn-sm" title="{{ 'Delete this slice'|trans({}, domain) }}">
+												<i class="bi bi-trash"></i>
+											</button>
+										</form>
+									{% endif %}
+								</td>
+							</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		{% else %}
+			<div class="alert alert-info" data-testid="geolocateddelivery-no-slice">{{ 'There is no radius slice: the local delivery is offered to no address.'|trans({}, domain) }}</div>
+		{% endif %}
+
+		{% if can_update %}
+			<form method="post" action="{{ path('geolocateddelivery.radius.create') }}" class="row g-3" data-testid="geolocateddelivery-slice-form">
+				<input type="hidden" name="_token" value="{{ assignToken() }}">
+				<div class="col-md-3">
+					<label class="form-label" for="geolocateddelivery-min-radius">{{ 'From (km)'|trans({}, domain) }}</label>
+					<input class="form-control" type="number" min="0" step="1" id="geolocateddelivery-min-radius" name="min_radius" required>
+				</div>
+				<div class="col-md-3">
+					<label class="form-label" for="geolocateddelivery-max-radius">{{ 'To (km)'|trans({}, domain) }}</label>
+					<input class="form-control" type="number" min="1" step="1" id="geolocateddelivery-max-radius" name="max_radius" required>
+				</div>
+				<div class="col-md-3">
+					<label class="form-label" for="geolocateddelivery-price">{{ 'Price (%symbol)'|trans({'%symbol': currency_symbol}, domain) }}</label>
+					<input class="form-control" type="number" min="0" max="100000" step="0.01" id="geolocateddelivery-price" name="price" required>
+				</div>
+				<div class="col-12">
+					<button type="submit" class="btn btn-primary btn-sm">{{ 'Add the slice'|trans({}, domain) }}</button>
+				</div>
+			</form>
+		{% endif %}
+	</div>
+</div>

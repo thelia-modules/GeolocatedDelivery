@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <database defaultIdMethod="native" name="TheliaMain"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          xsi:noNamespaceSchemaLocation="../../../vendor/thelia/propel/resources/xsd/database.xsd" >
+          xsi:noNamespaceSchemaLocation="../../../../core/vendor/propel/propel/resources/xsd/database.xsd" >
 
+    <!-- Distances in kilometres, bounds included: a slice applies when min_radius <= distance <= max_radius. -->
     <table name="geolocated_delivery_radius" namespace="GeolocatedDelivery\Model">
         <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER" />
 
@@ -11,6 +12,7 @@
         <column name="price" required="true" type="FLOAT" />
     </table>
 
+    <!-- latitude and longitude are written when the store is saved, from its full address. -->
     <table name="geolocated_delivery_store" namespace="GeolocatedDelivery\Model">
         <column autoIncrement="true" name="id" primaryKey="true" required="true" type="INTEGER" />
 

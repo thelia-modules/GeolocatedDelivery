@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Run from the project root, through the phpc wrapper, with
+     "-c local/modules/GeolocatedDelivery/phpunit.xml.dist" as the phpunit argument. -->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../../../vendor/phpunit/phpunit/phpunit.xsd"
+         backupGlobals="false"
+         colors="true"
+         bootstrap="../../../tests/bootstrap.php"
+         cacheDirectory="../../../var/cache-ci/.phpunit.cache"
+>
+    <php>
+        <ini name="error_reporting" value="-1" />
+        <server name="SHELL_VERBOSITY" value="-1" />
+        <server name="KERNEL_CLASS" value="App\Kernel" />
+
+        <server name="SYMFONY_DEPRECATIONS_HELPER" value="weak" />
+
+        <!-- ###+ symfony/framework-bundle ### -->
+        <server name="APP_ENV" value="test" force="true" />
+        <server name="APP_DEBUG" value="0" force="true" />
+        <env name="APP_SECRET" value="287f2178af9e0c250e8219a9df833504"/>
+        <!-- ###- symfony/framework-bundle ### -->
+        <env name="JWT_SECRET_KEY" value="%kernel.project_dir%/config/jwt/private.pem"/>
+        <env name="JWT_PUBLIC_KEY" value="%kernel.project_dir%/config/jwt/public.pem"/>
+
+
+        <!-- ###+ symfony/mailer ### -->
+        <env name="MAILER_DSN" value="null://null"/>
+        <!-- ###- symfony/mailer ### -->
+
+    </php>
+
+    <testsuites>
+        <testsuite name="unit">
+            <directory>Tests/Unit</directory>
+        </testsuite>
+        <testsuite name="integration">
+            <directory>Tests/Integration</directory>
+        </testsuite>
+        <testsuite name="http">
+            <directory>Tests/Http</directory>
+        </testsuite>
+    </testsuites>
+
+    <!-- The rate limiter reads the time with microtime(): ClockMock replaces it in these
+         namespaces from the start, so that a test can stop or move the clock. -->
+    <extensions>
+        <bootstrap class="Symfony\Bridge\PhpUnit\SymfonyExtension">
+            <parameter name="clock-mock-namespaces" value="Symfony\Component\RateLimiter,Symfony\Component\RateLimiter\Policy,Symfony\Component\RateLimiter\Storage" />
+        </bootstrap>
+    </extensions>
+
+</phpunit>
