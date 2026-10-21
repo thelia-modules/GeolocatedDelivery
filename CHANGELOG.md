@@ -1,3 +1,21 @@
+# 2.0.1
+
+- An IPv4 visitor seen in IPv6 form no longer shares the rate limit of every other IPv4
+  visitor: an IPv4-mapped address (`::ffff:1.2.3.4`, what a dual-stack server gives) and an
+  address under the NAT64 well-known prefix (`64:ff9b::/96`) count as their IPv4. Version
+  2.0.0 cut them to `::/64` and `64:ff9b::/64`.
+- A visitor over his limit is turned away before the shop counter is looked at, so he no
+  longer takes the lock every other visitor waits for.
+- The locks of the rate limiter expire after 5 seconds instead of 300: with a store shared
+  between servers, a process that died while holding one held the checkout for five
+  minutes.
+- A shop counter written when the limit was higher (more hits than the limit allows now)
+  counts as exhausted, instead of letting the visitor's token be spent on a refused call.
+- The price of a slice is written to the administration log with a point whatever the
+  locale of the server (`4.50`, not `4,50`).
+- README: the lock store and the cache must be shared between servers, `framework.lock`
+  is required, and `flock` leaves one file per counter in the temporary directory.
+
 # 2.0.0
 
 Port to Thelia 3.
