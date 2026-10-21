@@ -172,7 +172,7 @@ class ConfigurationController extends BaseAdminController
 
     private function describe(GeolocatedDeliveryRadius $slice, string $what): string
     {
-        return \sprintf('Radius slice from %d to %d km at %.2f %s', $slice->getMinRadius(), $slice->getMaxRadius(), $slice->getPrice(), $what);
+        return \sprintf('Radius slice from %d to %d km at %.2F %s', $slice->getMinRadius(), $slice->getMaxRadius(), $slice->getPrice(), $what);
     }
 
     private function backToTheConfiguration(Session $session, string $type, string $message): RedirectResponse

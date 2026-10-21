@@ -106,6 +106,7 @@ class GeolocatedDelivery extends AbstractDeliveryModuleWithState
                 __DIR__.'/DependencyInjection/*',
                 __DIR__.'/Service/Coordinates.php',
                 __DIR__.'/Service/Destination.php',
+                __DIR__.'/Service/RateLimiterLockFactory.php',
                 __DIR__.'/GeolocatedDelivery.php',
             ])
             ->autowire(true)
