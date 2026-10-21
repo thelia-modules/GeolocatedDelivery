@@ -201,6 +201,8 @@ final class GeocoderRateLimitTest extends TestCase
         yield '6to4' => ['2002:102:304::1', '2002:102:305::1'];
         // Same Teredo server (65.54.227.120), clients 1.2.3.4 and 1.2.3.5, bits inverted.
         yield 'Teredo' => ['2001:0:4136:e378:8000:63bf:fefd:fcfb', '2001:0:4136:e378:8000:63bf:fefd:fcfa'];
+        // RFC 6052 2.2, /48: 1.2 in bytes 6-7, the "u" octet zero, 3.4 in bytes 9-10.
+        yield 'NAT64 local-use /48' => ['64:ff9b:1:102:3:400::', '64:ff9b:1:102:3:500::'];
     }
 
     #[DataProvider('ipv6FormsCarryingAnIpv4')]
@@ -230,6 +232,7 @@ final class GeocoderRateLimitTest extends TestCase
         yield '2001:1::/32, not Teredo (2001:0::/32)' => ['2001:1::1', '2001:1::2'];
         yield 'ffff in the fourth group, not IPv4-translated' => ['::ffff:0:0:0:1', '::ffff:0:0:0:2'];
         yield '64:ff9b:1::, not the well-known NAT64 /96' => ['64:ff9b:1::1', '64:ff9b:1::2'];
+        yield 'NAT64 local-use with a non-zero "u" octet, not RFC 6052' => ['64:ff9b:1:102:ff03:400::', '64:ff9b:1:102:ff05:600::'];
     }
 
     #[DataProvider('addressesThatOnlyLookLikeAFormCarryingAnIpv4')]
