@@ -23,6 +23,12 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 
 final class RateLimiterLockFactoryTest extends TestCase
 {
+    /**
+     * Public methods of LockFactory that read nothing the subclass leaves uninitialised: the
+     * subclass does not run the parent constructor, so the parent's store is never set.
+     */
+    private const METHODS_THAT_NEED_NO_STORE = ['setLogger'];
+
     /** @var \ArrayObject<int, array{resource: string, lifetime: float}> */
     private \ArrayObject $shopLocks;
 
@@ -47,6 +53,27 @@ final class RateLimiterLockFactoryTest extends TestCase
         self::assertTrue($lock->acquire());
         self::assertSame([['resource' => 'geolocated_delivery_shop-shop', 'lifetime' => RateLimiterLockFactory::LOCK_LIFETIME_SECONDS]], $this->shopLocks->getArrayCopy());
         $lock->release();
+    }
+
+    /**
+     * Guards against a new public method of LockFactory, which the subclass would inherit and
+     * which would read the store the subclass never initialises.
+     */
+    public function testEveryPublicMethodOfLockFactoryIsOverriddenOrNeedsNoStore(): void
+    {
+        $unsafe = [];
+
+        foreach ((new \ReflectionClass(LockFactory::class))->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+            if ('__construct' === $method->getName() || \in_array($method->getName(), self::METHODS_THAT_NEED_NO_STORE, true)) {
+                continue;
+            }
+
+            if (RateLimiterLockFactory::class !== (new \ReflectionMethod(RateLimiterLockFactory::class, $method->getName()))->getDeclaringClass()->getName()) {
+                $unsafe[] = $method->getName();
+            }
+        }
+
+        self::assertSame([], $unsafe, 'RateLimiterLockFactory must override these methods of LockFactory.');
     }
 
     private function factory(): RateLimiterLockFactory
