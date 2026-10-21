@@ -91,7 +91,12 @@ in the cache costs nothing, and locating a store from the back office is not lim
   `GeocodingRateLimiter::VISITOR_INTERVAL` (1 minute). The visitor is the client IP of the
   request, hashed with the kernel secret: no IP is stored in the cache in clear. An IPv6
   visitor is counted by the /64 prefix of the address, since one connection usually gets a
-  whole /64; an IPv4 address counts whole.
+  whole /64; an IPv4 address counts whole. An IPv6 address that carries an IPv4 one counts
+  as that IPv4: the IPv4-mapped form (`::ffff:1.2.3.4`) a dual-stack server gives its IPv4
+  clients, and the NAT64 well-known prefix (`64:ff9b::/96`) a translator in front of an
+  IPv6-only server uses. Other NAT64 prefixes (`64:ff9b:1::/48`, a prefix of the network)
+  are counted by their /64, which holds part of the IPv4 or none of it: many IPv4 clients
+  behind them may share one limit.
 - For the whole shop: `GeocodingRateLimiter::SHOP_LIMIT` calls (40) per
   `GeocodingRateLimiter::SHOP_INTERVAL` (1 second). The address service allows 50 calls
   per second and per IP, and its documentation advises a cap at 40 or 45
@@ -112,9 +117,28 @@ The client IP is only as reliable as the proxy configuration of the shop:
 Both limits are sliding windows, kept in the application cache. A fixed window would let
 twice the limit through around the change of window. Each counter is read and written
 under a lock of the shop's lock factory (`framework.lock`, the store `LOCK_DSN` names),
-so that requests in parallel cannot all take the last token. The shop limit is looked at
-before the visitor's token is taken: a call the shop refuses costs the visitor nothing, and
-a call the visitor's limit refuses costs the shop nothing.
+so that requests in parallel cannot all take the last token. Those locks expire after
+`RateLimiterLockFactory::LOCK_LIFETIME_SECONDS` (5 seconds) instead of the 300 seconds of
+Symfony's default: with a shared store, a lock left by a process that died would otherwise
+hold the checkout of every visitor for five minutes.
+
+Both limits are looked at before any token is taken, the visitor's first: a visitor over his
+limit is turned away without touching the shop counter, whose lock all visitors share. A
+call the shop refuses costs the visitor nothing, and a call the visitor's limit refuses
+costs the shop nothing.
+
+Configuring the lock:
+
+- `framework.lock` must be configured (`LOCK_DSN`); the core already needs it for the
+  checkout, and without it the container does not compile.
+- With several web servers, `LOCK_DSN` and the application cache must point to a store all
+  of them share (Redis, a database). With a store local to each server (`flock`, `semaphore`,
+  a filesystem cache), each server counts on its own: the shop limit becomes 40 calls per
+  second per server, and two servers already go past the 50 per second the address service
+  allows.
+- With `flock`, the store writes one file per counter in the temporary directory, one per
+  visitor key included, and never removes them; clean the `sf.*.lock` files of the temporary
+  directory from time to time on a busy shop.
 
 A refused call sends nothing to the service: the local delivery is not offered for that
 address. The refusal is not cached, so a visitor over the limit does not deprive the other
