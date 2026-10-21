@@ -80,8 +80,9 @@ Breaking changes, for code that extends, calls or templates against the module:
   `METHOD_MIN_RADIUS`, `METHOD_PRICE`, `METHOD_WEIGHT` (the settings they named are gone, see
   above) and `MESSAGE_DOMAIN`, replaced by `DOMAIN_NAME` (`geolocateddelivery`, not
   `geolocated_delivery`) and `BACK_OFFICE_DOMAIN`.
-- Methods of `GeolocatedDelivery` removed: `getConfig()`, `getDeliveryMode()`, `trans()` and
-  the `$translator` property. They have no replacement.
+- Methods of `GeolocatedDelivery` removed: `getConfig()`, `trans()` and the `$translator`
+  property. They have no replacement. `getDeliveryMode()` is now inherited from
+  `AbstractDeliveryModuleWithState` and still returns `delivery`.
 - Types made explicit: `getPostage()` and `isValidDelivery()` take `?State $state = null`,
   `postActivation()` and `update()` take `?ConnectionInterface $con = null`. These were
   implicitly nullable before, so callers are not affected. A class that overrides them must
