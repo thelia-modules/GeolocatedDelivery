@@ -311,6 +311,32 @@ final class ConfigurationScreenTest extends WebIntegrationTestCase
         );
     }
 
+    public function testTheLoggedPriceIsWrittenWithAPointWhateverTheLocaleOfTheServer(): void
+    {
+        $previousLocale = setlocale(\LC_NUMERIC, '0');
+        if (false === setlocale(\LC_NUMERIC, 'fr_FR.UTF-8', 'fr_FR.utf8', 'fr_FR')) {
+            self::markTestSkipped('No French locale on this server.');
+        }
+
+        try {
+            $this->assertPageRenders(self::CONFIGURATION_URL);
+            $this->client->submit($this->client->getCrawler()->filter('[data-testid="geolocateddelivery-slice-form"]')->form(), [
+                'min_radius' => '0',
+                'max_radius' => '10',
+                'price' => '4.5',
+            ]);
+        } finally {
+            setlocale(\LC_NUMERIC, (string) $previousLocale);
+        }
+
+        $slice = GeolocatedDeliveryRadiusQuery::create()->findOne();
+        self::assertNotNull($slice);
+        self::assertSame(
+            [[AccessManager::CREATE, 'Radius slice from 0 to 10 km at 4.50 added']],
+            $this->logLines(ConfigurationController::RADIUS_LOG_RESOURCE, $slice->getId()),
+        );
+    }
+
     public function testDeletingWithoutTheTokenChangesNothing(): void
     {
         $store = $this->store('Lyon centre');

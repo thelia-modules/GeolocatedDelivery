@@ -40,7 +40,8 @@ use Symfony\Component\RateLimiter\Storage\CacheStorage;
  * the located towns, and each one is read and written under a lock of the shop's lock
  * factory (framework.lock, the store LOCK_DSN names, which the core already uses for the
  * checkout): without it, requests in parallel would all read the same count and pass
- * together.
+ * together. Those locks live five seconds, not the five minutes of LockFactory (see
+ * RateLimiterLockFactory).
  *
  * An IPv6 visitor is counted by the /64 prefix of the address: a single connection usually
  * receives a whole /64, and would otherwise get a fresh limit with every address of it.
@@ -72,43 +73,51 @@ final readonly class GeocodingRateLimiter
         LockFactory $lockFactory,
     ) {
         $storage = new CacheStorage($cache);
+        $shortLivedLocks = new RateLimiterLockFactory($lockFactory);
 
         $this->perVisitor = new RateLimiterFactory([
             'id' => 'geolocated_delivery_visitor',
             'policy' => 'sliding_window',
             'limit' => self::VISITOR_LIMIT,
             'interval' => self::VISITOR_INTERVAL,
-        ], $storage, $lockFactory);
+        ], $storage, $shortLivedLocks);
 
         $this->perShop = new RateLimiterFactory([
             'id' => 'geolocated_delivery_shop',
             'policy' => 'sliding_window',
             'limit' => self::SHOP_LIMIT,
             'interval' => self::SHOP_INTERVAL,
-        ], $storage, $lockFactory);
+        ], $storage, $shortLivedLocks);
     }
 
     /**
      * Takes a token of each limit for one call to the address service. Null when the call may
      * go, otherwise the limit that refused it.
      *
-     * The shop limit is looked at first without taking anything, then the visitor's token is
-     * taken, then the shop's: a call the shop refuses costs the visitor nothing, and a call
-     * the visitor's limit refuses costs the shop nothing. Only two requests racing for the
-     * very last token of the shop, between the look and the take, can cost one of them a
-     * visitor token; the limiters offer no way to give a token back.
+     * Both limits are looked at before anything is taken, the visitor's first: a visitor over
+     * his limit is turned away without touching the shop counter, whose lock every visitor
+     * shares. Then the visitor's token is taken, then the shop's. A call the shop refuses
+     * costs the visitor nothing, and a call the visitor's limit refuses costs the shop
+     * nothing. Only two requests racing for the very last token, between the look and the
+     * take, can cost one of them a token of the other limit; the limiters offer no way to
+     * give a token back.
      */
     public function refusalOfACall(): ?string
     {
+        $visitorKey = $this->visitorKey();
+        $visitor = null === $visitorKey ? null : $this->perVisitor->create($visitorKey);
+
+        if (null !== $visitor && $visitor->consume(0)->getRemainingTokens() <= 0) {
+            return self::REFUSED_BY_VISITOR_LIMIT;
+        }
+
         $shop = $this->perShop->create('shop');
 
-        if (0 === $shop->consume(0)->getRemainingTokens()) {
+        if ($shop->consume(0)->getRemainingTokens() <= 0) {
             return self::REFUSED_BY_SHOP_LIMIT;
         }
 
-        $visitorKey = $this->visitorKey();
-
-        if (null !== $visitorKey && !$this->perVisitor->create($visitorKey)->consume()->isAccepted()) {
+        if (null !== $visitor && !$visitor->consume()->isAccepted()) {
             return self::REFUSED_BY_VISITOR_LIMIT;
         }
 
@@ -117,6 +126,9 @@ final readonly class GeocodingRateLimiter
 
     /**
      * The hashed IP of the visitor, an IPv6 cut to its /64 prefix. Null without a request.
+     *
+     * An IPv6 address that carries the IPv4 of the visitor is counted as that IPv4, whole (see
+     * embeddedIpv4()): cut to /64, all the visitors behind one prefix would share a counter.
      */
     private function visitorKey(): ?string
     {
@@ -129,9 +141,59 @@ final readonly class GeocodingRateLimiter
         $packed = @inet_pton($clientIp);
 
         if (\is_string($packed) && 16 === \strlen($packed)) {
-            $clientIp = (string) inet_ntop(substr($packed, 0, 8).str_repeat("\0", 8)).'/64';
+            $ipv4 = self::embeddedIpv4($packed);
+            $clientIp = null !== $ipv4
+                ? (string) inet_ntop($ipv4)
+                : (string) inet_ntop(substr($packed, 0, 8).str_repeat("\0", 8)).'/64';
         }
 
         return hash_hmac('sha256', $clientIp, $this->secret);
+    }
+
+    /**
+     * The IPv4 (packed) an IPv6 address stands for, or null.
+     *
+     * - IPv4-mapped, ::ffff:a.b.c.d (RFC 4291 2.5.5.2): what a dual-stack server hands for an
+     *   IPv4 client.
+     * - IPv4-translated, ::ffff:0:a.b.c.d (RFC 2765 2.1).
+     * - IPv4-compatible, ::a.b.c.d (RFC 4291 2.5.5.1, deprecated). The unspecified address ::
+     *   and the loopback ::1 are not IPv4 ones: they keep the /64 of every other address,
+     *   ::/64, and share it.
+     * - NAT64 well-known prefix, 64:ff9b::a.b.c.d (RFC 6052 2.1), under which a translator in
+     *   front of an IPv6-only server (SIIT-DC, RFC 7755) shows each IPv4 client.
+     * - NAT64 local-use prefix, 64:ff9b:1::/48 (RFC 8215), read as a /48 of RFC 6052 2.2: the
+     *   IPv4 in bytes 6 and 7, then 9 and 10, byte 8 (the "u" octet) zero; with another byte 8
+     *   the address does not follow that format and keeps its /64. An operator may cut the
+     *   local prefix into longer ones (a /64, a /96): read as a /48, their clients share a key
+     *   at worst as much as their /64 would make them. Network-specific prefixes cannot be
+     *   recognised and keep their /64.
+     *   One cut is read exactly: the /96 64:ff9b:1::a.b.c.d, bytes 6 to 11 zero and the IPv4 in
+     *   the last four bytes, as under the well-known prefix. Read as a /48 it would give every
+     *   client 0.0.0.0. The only /48 address it could be mistaken for carries 0.0.0.0, the
+     *   "this host" address only a host still learning its own address may send (RFC 1122
+     *   3.2.1.3); its suffix, bytes 11 to 15, SHOULD be zero (RFC 6052 2.2), and then both
+     *   readings give 0.0.0.0.
+     * - 6to4, 2002:AABB:CCDD::/48 (RFC 3056 2): the IPv4 of the site in bytes 2 to 5.
+     * - Teredo, 2001:0:SSSS:SSSS:FFFF:PPPP:CCCC:CCCC (RFC 4380 4): bytes 4 to 7 hold the IPv4
+     *   of the Teredo server and bytes 12 to 15 the public IPv4 of the client, every bit
+     *   inverted. The /64 is the server: every client of one server would share a counter, so
+     *   the client's IPv4 is decoded instead.
+     */
+    private static function embeddedIpv4(string $packedIpv6): ?string
+    {
+        $first12 = substr($packedIpv6, 0, 12);
+        $last4 = substr($packedIpv6, 12);
+
+        return match (true) {
+            str_repeat("\0", 10)."\xff\xff" === $first12,
+            str_repeat("\0", 8)."\xff\xff\0\0" === $first12,
+            "\x00\x64\xff\x9b".str_repeat("\0", 8) === $first12,
+            "\x00\x64\xff\x9b\x00\x01".str_repeat("\0", 6) === $first12 => $last4,
+            str_starts_with($packedIpv6, "\x00\x64\xff\x9b\x00\x01") && "\0" === $packedIpv6[8] => substr($packedIpv6, 6, 2).substr($packedIpv6, 9, 2),
+            str_repeat("\0", 12) === $first12 => \in_array($last4, ["\0\0\0\0", "\0\0\0\x01"], true) ? null : $last4,
+            str_starts_with($packedIpv6, "\x20\x02") => substr($packedIpv6, 2, 4),
+            str_starts_with($packedIpv6, "\x20\x01\x00\x00") => ~$last4,
+            default => null,
+        };
     }
 }
